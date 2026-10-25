@@ -18,6 +18,8 @@ set-top box. Goal: obtain root Linux shell access on operator-locked hardware.
 
 - [JTAGenum](https://github.com/DenisovPlay/JTAGenum) - JTAG определялка для WEMOS
 
+andreydenisov25@gmail.com, t.me/@zeniflow_support - ПИШИТЕ СЮДА.
+
 ---
 
 ## Hardware
