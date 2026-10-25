@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+RESOLV_CONF="/etc/resolv.conf"
+[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+[ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+case "$1" in
+	leasefail)
+		echo "give link-local address"
+		RESULT_GREP=`ip addr | grep $interface | grep "169.254"`
+		if [ -z $RESULT_GREP ] ; then
+			/usr/share/zcip/kill_zcip.sh $interface
+			zcip $interface /usr/share/zcip/zcip.script -v &
+		fi
+		;;
+
+	deconfig)
+		echo "udhcpc deconfig " $interface " 0.0.0.0"
+		/sbin/ifconfig $interface 0.0.0.0
+		;;
+
+	renew|bound)
+		/sbin/ifconfig $interface $ip $BROADCAST $NETMASK
+		/usr/share/zcip/kill_zcip.sh $interface
+
+		if [ -n "$router" ] ; then
+			echo "deleting routers"
+			while route del default gw 0.0.0.0 dev $interface ; do
+				:
+			done
+
+			for i in $router ; do
+				route add default gw $i dev $interface
+				echo $i > /var/lib/humaxtv/route.$interface.conf
+			done
+		fi
+
+		echo -n > $RESOLV_CONF
+		[ -n "$domain" ] && echo search $domain >> $RESOLV_CONF
+		echo nameserver 127.0.0.1 >> $RESOLV_CONF
+		for i in $dns ; do
+			echo adding dns $i
+			echo nameserver $i >> $RESOLV_CONF
+		done
+		echo nameserver 208.67.222.222 >> $RESOLV_CONF
+		echo nameserver 208.67.220.220 >> $RESOLV_CONF
+		echo nameserver 8.8.8.8 >> $RESOLV_CONF
+		echo nameserver 8.8.4.4 >> $RESOLV_CONF
+		;;
+esac
+
+exit 0

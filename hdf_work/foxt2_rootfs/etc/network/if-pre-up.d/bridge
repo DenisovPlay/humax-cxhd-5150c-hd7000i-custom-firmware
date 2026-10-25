@@ -1,0 +1,32 @@
+#!/bin/sh 
+
+[ -x /sbin/brctl ] || exit 0
+[ -x /sbin/ifconfig ] || exit 0
+
+[ "$IF_BRIDGE_IFACES" = ""  ] && exit 0
+
+for i in $IF_BRIDGE_IFACES; do
+    ifconfig $i >/dev/null 2>&1
+    if [ $? -ne 0 ] ; then
+	echo "Interface $i is not available, aborting"
+	exit 1
+    fi
+done
+
+if [ "$MODE" = "start" ] ; then
+    for i in $IF_BRIDGE_IFACES; do
+	ifconfig $i 0.0.0.0 up
+    done
+    brctl addbr $IFACE
+    for i in $IF_BRIDGE_IFACES; do
+	brctl addif $IFACE $i
+    done
+elif [ "$MODE" = "stop" ];  then
+    for i in $IF_BRIDGE_IFACES; do
+	brctl delif $IFACE $i
+    done
+    brctl delbr $IFACE
+    for i in $IF_BRIDGE_IFACES; do
+	ifconfig $i down
+    done
+fi

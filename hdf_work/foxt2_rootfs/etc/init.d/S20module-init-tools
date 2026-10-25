@@ -1,0 +1,23 @@
+#!/bin/sh
+
+MODULES_FILE=/etc/default/modules
+. /lib/lsb/init-functions
+. /etc/default/rcS
+if [ "$VERBOSE" != no ]; then
+	log_begin_msg 'Loading modules...'
+fi
+grep '^[^#]' $MODULES_FILE | \
+while read module args; do
+    [ "$module" ] || continue
+    if [ "$VERBOSE" != no ]; then
+		log_begin_msg "Trying module $module"
+		if modprobe $module $args >/dev/null 2>&1; then
+		    log_end_msg 0
+		else
+		    log_end_msg 1 || true
+		fi
+    else
+	modprobe $module $args >/dev/null 2>&1 || true
+    fi
+done
+

@@ -1,0 +1,90 @@
+#!/bin/sh
+
+[ -x /sbin/ifup ] || exit 0
+[ -x /sbin/ifdown ] || exit 0
+
+. /lib/lsb/init-functions
+. /etc/default/rcS
+
+MYNAME="${0##*/}"
+report() { echo "${MYNAME}: $*" ; }
+report_err() { log_failure_msg "$*" ; }
+RUN_DIR=/var/run
+[ -r /etc/default/ifupdown ] && . /etc/default/ifupdown
+
+# Note: The state file location is hardcoded in ifup|ifdown
+IFSTATE=/var/run/ifstate
+
+HUMAXTV_CONFIG=/var/lib/humaxtv/network/network.conf
+
+
+myreadlink () {
+    dest="${1%/}"
+    extras=""
+
+    while [ "$dest" != "" ]; do
+	if [ -d "$dest" ]; then
+	    cd "$dest"
+	    dest=$(/bin/pwd)
+	    break
+	fi
+
+	if [ -L "$dest" ]; then
+	    d2=$(readlink "$dest")
+	    if [ "${d2#/}" = "$d2" ]; then
+		dest="${dest%/*}/$d2"
+	    else
+		dest="$d2"
+	    fi
+	fi
+
+	while [ ! -e "$dest" ]; do
+	    extras="${dest##*/}/$extras"
+	    if [ "${extras%%/*}" = ".." ]; then return 1; fi
+	    destx="${dest%/*}"
+	    if [ "$destx" = "$dest" ]; then destx=""; fi
+	    dest="$destx"
+	done
+    done
+    dest="$dest/$extras"
+    echo "${dest%/}"
+}
+
+case "$1" in
+    start|restart)
+	if [ "$2" ]; then
+	    report_err "Arguments to '$1' command not accepted"
+	    exit 3
+	fi
+	if [ "$VERBOSE" != no ]; then
+		log_begin_msg "Setting up networking..."
+	fi
+
+#	if [ ! -r "$HUMAXTV_CONFIG" ]; then
+#		udhcpc &
+#	else
+#		chmod 755  "$HUMAXTV_CONFIG"
+#		./"$HUMAXTV_CONFIG"
+#	fi
+
+	if [ "$VERBOSE" != no ]; then
+		log_end_msg 0
+	fi
+	exit 0
+	;;
+    stop)
+	if [ "$2" ]; then
+	    report_err "Arguments to '$1' command not accepted"
+	    exit 3
+	fi
+	if [ -x /etc/init.d/ifupdown-clean ]; then
+	    /etc/init.d/ifupdown-clean start
+	fi
+	;;
+    force-reload)
+	;;
+    *)
+	echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac

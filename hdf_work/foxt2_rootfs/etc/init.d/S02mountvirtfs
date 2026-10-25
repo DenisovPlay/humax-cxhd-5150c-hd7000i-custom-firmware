@@ -1,0 +1,51 @@
+#!/bin/sh
+
+TTYGRP=5
+TTYMODE=620
+if [ -f /etc/default/devpts ]; then
+    . /etc/default/devpts
+fi
+
+TMPFS_SIZE=
+if [ -f /etc/default/tmpfs ]; then
+    . /etc/default/tmpfs
+fi
+
+# Mount standard /proc and /sys
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t usbfs usbfs /proc/bus/usb
+
+# Mount /dev/pts. Create master ptmx node if needed.
+if [ -d /dev/pts ]; then
+    mount -t devpts devpts /dev/pts -ogid=$TTYGRP,mode=$TTYMODE
+fi
+
+# Mount tmpfs.
+if [ -n "$TMPFS_SIZE" ]; then
+    tmpfs_opt="-osize=${TMPFS_SIZE}"
+fi
+mount -t tmpfs tmpfs /tmp $tmpfs_opt
+
+# hotplug
+#echo /sbin/mdev > /proc/sys/kernel/hotplug
+#/sbin/mdev -s
+
+
+mount -t tmpfs -o mode=0755  tmpfs /media
+
+grep 'var' /proc/mtd | \
+while read device size erasesize name; do
+	mtd -q -q unlock var
+	device=${device%:}
+	device=${device#mtd}
+	device=/dev/mtdblock$device
+	mount $device /var
+	if [ ! -f /var/tmp ] ; then
+		ln -sf ../tmp /var/lock
+		ln -sf ../tmp /var/log
+		ln -sf ../tmp /var/run
+		ln -sf ../tmp /var/spool
+		mkdir -p /var/lib/neo
+	fi
+done

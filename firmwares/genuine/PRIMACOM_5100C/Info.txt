@@ -1,0 +1,43 @@
+Anleitung zum Softwareupdate des Interakiven HD-Rekorder (Humax CXHD-5100C) 
+===========================================================================
+
+Die Bedienungsanleitung zum Interaktiven HD-Rekorder (Humax CXHD-5100C) steht zum Download bereit
+im PDF Format für den Acrobat Reader unter:
+http://www.primacom.de 
+
+
+Installation:
+Zuerst kopieren Sie folgende Dateien in ein Verzeichnis Ihrer Wahl,
+z.B. C:\Humax
+
+
+cxhd_5100c_upgrade.hdf
+Info.TXT
+
+
+
+Anleitung USB-Update
+====================
+
+Um das Gerät über die USB-Schnittstelle updaten zu können, benötigen Sie einen
+handelsüblichen USB-Flash-Stick.
+Formatieren Sie diesen USB-Flash-Stick mit dem Dateisystem "FAT32".
+Kopieren Sie nun die Software-Datei "cxhd_5100c_upgrade.hdf" auf den Stick.
+
+
+Schalten Sie nun den Receiver in den Standby und warten Sie bis der Receiver
+vollständig ausgeschaltet ist (es darf nur noch die rote Betriebsstatusanzeige leuchten).
+Jetzt stecken Sie den USB-Flash-Stick in die USB-Buchse des Receivers. 
+Nun müssen Sie den Receiver über die "Standby"-Taste am Gerät einschalten und die Taste gedrückt halten. 
+Es erscheint nach einigen Sekunden die Anzeige "Willkommen" im Display. 
+Kurz darauf folgen weitere Statusmeldungen, jetzt können Sie die "Standby"-Taste am Gerät loslassen.
+Der Receiver startet nach dem Update automatisch neu, nach dem Neustart ist das Update beendet
+und Sie können den Stick wieder entfernen.
+
+Sollte das USB-Update nicht starten, gehen Sie bitte nochmals alle Schritte durch oder
+versuchen Sie einen anderen USB-Flash-Stick.
+
+
+
+(c) Primacom 2012
+Änderungen vorbehalten

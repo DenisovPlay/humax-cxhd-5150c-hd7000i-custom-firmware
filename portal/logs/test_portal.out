@@ -1,0 +1,6 @@
+listening http://0.0.0.0:8080
+listening https://0.0.0.0:8443
+listening http://0.0.0.0:5080
+listening https://0.0.0.0:5001
+READY launcher_target=http://humax.onlime.ru:5080/ stb_ip=192.168.1.21
+dashboard: http://192.168.1.18:5080/dashboard

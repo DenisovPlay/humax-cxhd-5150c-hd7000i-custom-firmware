@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Humax / OnLime debug dashboard</title>
+<style>
+:root { color-scheme: dark; }
+body { background:#0d1117; color:#e6edf3; font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; margin:0; padding:18px; }
+h1 { font-size:20px; margin:0 0 4px 0; }
+h2 { font-size:15px; margin:22px 0 8px 0; color:#7ee787; }
+.sub { color:#8b949e; margin-bottom:14px; }
+.bar { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 18px 0; }
+button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:7px 12px; cursor:pointer; font-size:13px; }
+button:hover { background:#30363d; }
+button.primary { border-color:#238636; background:#238636; }
+#status { color:#8b949e; margin-bottom:10px; }
+#events { border:1px solid #30363d; border-radius:8px; overflow:hidden; }
+.ev { border-bottom:1px solid #21262d; padding:8px 10px; }
+.ev:last-child { border-bottom:0; }
+.ev.stb { background:#0f2417; }
+.ev .line1 { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.ev .time { color:#8b949e; font-variant-numeric:tabular-nums; }
+.ev .ip { color:#79c0ff; }
+.ev .ip.stb { color:#7ee787; font-weight:600; }
+.ev .method { color:#d2a8ff; }
+.ev .url { color:#e6edf3; word-break:break-all; }
+.ev .tag { background:#30363d; color:#c9d1d9; border-radius:4px; padding:1px 6px; font-size:11px; }
+.ev details { margin-top:5px; }
+.ev summary { color:#8b949e; cursor:pointer; font-size:12px; }
+.ev pre { background:#010409; border:1px solid #21262d; border-radius:6px; padding:8px; overflow:auto; max-height:320px; font-size:12px; margin:6px 0 0 0; white-space:pre-wrap; word-break:break-word; }
+#dns { background:#010409; border:1px solid #30363d; border-radius:8px; padding:8px; max-height:260px; overflow:auto; font-size:12px; white-space:pre-wrap; }
+.empty { color:#8b949e; padding:14px; text-align:center; }
+</style>
+</head>
+<body>
+<h1>Humax / OnLime debug dashboard</h1>
+<div class="sub">STB <b id="stbip">192.168.1.21</b> &middot; DNS override, launcher and panel logs in one place.</div>
+<div id="status">connecting...</div>
+
+<div class="bar">
+  <button class="primary" onclick="setTarget('http://humax.onlime.ru:5080/')">Launcher &rarr; HTTP 5080</button>
+  <button onclick="setTarget('https://humax.onlime.ru:5001/')">Launcher &rarr; HTTPS 5001</button>
+  <button onclick="clearLog()">Clear events</button>
+  <button onclick="location.reload()">Reload</button>
+</div>
+
+<h2>Requests from the box</h2>
+<div id="events"><div class="empty">waiting for requests...</div></div>
+
+<h2>DNS queries</h2>
+<pre id="dns">loading...</pre>
+
+<script>
+var lastId = 0;
+var evBox = document.getElementById("events");
+var dnsBox = document.getElementById("dns");
+var statusBox = document.getElementById("status");
+var firstEvent = true;
+
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function api(url, method, body, cb) {
+  var xhr = new XMLHttpRequest();
+  xhr.open(method || "GET", url, true);
+  if (body) xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) return;
+    var data = null;
+    try { data = JSON.parse(xhr.responseText); } catch (e) {}
+    if (cb) cb(xhr.status, data, xhr.responseText);
+  };
+  try { xhr.send(body || null); } catch (e) { if (cb) cb(0, null, String(e)); }
+}
+
+function eventNode(ev) {
+  var div = document.createElement("div");
+  div.className = "ev" + (ev.is_stb ? " stb" : "");
+  var report = "";
+  if (ev.report !== undefined) {
+    report = JSON.stringify(ev.report, null, 2);
+  } else if (ev.body) {
+    report = ev.body;
+  }
+  var details = "";
+  if (report) {
+    details = '<details><summary>payload</summary><pre>' + esc(report) + '</pre></details>';
+  }
+  div.innerHTML =
+    '<div class="line1">' +
+      '<span class="time">' + esc((ev.ts || "").replace("T", " ")) + '</span>' +
+      '<span class="ip' + (ev.is_stb ? " stb" : "") + '">' + esc(ev.client) + '</span>' +
+      '<span class="method">' + esc(ev.method) + '</span>' +
+      '<span class="url">' + esc(ev.url) + '</span>' +
+      (ev.is_stb ? '<span class="tag">STB</span>' : '') +
+      '<span class="tag">' + esc(ev.scheme + ":" + ev.port) + '</span>' +
+      (ev.ua ? '<span class="tag">' + esc(ev.ua.slice(0, 70)) + '</span>' : '') +
+    '</div>' +
+    details;
+  return div;
+}
+
+function pollEvents() {
+  api("/api/events?since=" + lastId, "GET", null, function(code, data) {
+    if (code !== 200 || !data) {
+      statusBox.textContent = "events API error (HTTP " + code + ")";
+      return;
+    }
+    if (data.events && data.events.length) {
+      if (firstEvent) { evBox.innerHTML = ""; firstEvent = false; }
+      for (var i = 0; i < data.events.length; i++) {
+        evBox.appendChild(eventNode(data.events[i]));
+        lastId = Math.max(lastId, data.events[i].id);
+      }
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+    statusBox.textContent = "events: " + lastId + " last id seen" +
+      (data.events && data.events.length ? " (+" + data.events.length + ")" : "");
+  });
+}
+
+function pollDns() {
+  api("/api/dns", "GET", null, function(code, data) {
+    if (code === 200 && data && data.lines) {
+      dnsBox.textContent = data.lines.length ? data.lines.join("\n") : "(no DNS queries yet)";
+    }
+  });
+}
+
+function pollStatus() {
+  api("/api/status", "GET", null, function(code, data) {
+    if (code === 200 && data) {
+      if (data.config && data.config.stb_ip) {
+        document.getElementById("stbip").textContent = data.config.stb_ip;
+      }
+      var t = "panel up " + data.uptime + "s, events " + data.events;
+      if (data.last_stb) t += ", last STB request " + data.last_stb.ts;
+      statusBox.textContent = t;
+    }
+  });
+}
+
+function setTarget(url) {
+  api("/api/config", "POST", JSON.stringify({launcher_target: url}), function(code, data) {
+    if (code === 200 && data && data.config) {
+      alert("Launcher target:\n" + data.config.launcher_target);
+    } else {
+      alert("Config update failed (HTTP " + code + ")");
+    }
+  });
+}
+
+function clearLog() {
+  if (!confirm("Clear the event list?")) return;
+  api("/api/clear", "POST", "{}", function(code) {
+    evBox.innerHTML = '<div class="empty">cleared</div>';
+    firstEvent = true;
+    lastId = 0;
+    pollEvents();
+  });
+}
+
+pollEvents();
+pollDns();
+pollStatus();
+setInterval(pollEvents, 1000);
+setInterval(pollDns, 2000);
+setInterval(pollStatus, 3000);
+</script>
+</body>
+</html>

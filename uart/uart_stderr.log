@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/andrey/Desktop/humax/uart/uart_log.py", line 64, in <module>
+    fd = open_port()
+  File "/Users/andrey/Desktop/humax/uart/uart_log.py", line 41, in open_port
+    attrs = termios.tcgetattr(fd)
+termios.error: (6, 'Device not configured')

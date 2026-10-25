@@ -1,0 +1,20 @@
+HDF Information File
+--------------------
+
+HDF Filename     : key.hdf
+CRC-32           : 0xD82D6AAA
+
+Header length    : 18 Bytes
+Header Checksum  : 0xAC94 (ok)
+Model Type       : 3 (OAK Model)
+System ID (1)    : (0000.0000)
+System ID (2)    : (0076.0600)
+Number of Blocks : 1
+Data Length      : 1261 Bytes (ok)
+
+Block (1) found at Position 0x00000014.
+Next Offset      : 1259
+Block Checksum   : 0xA852 (ok)
+Block Type       : 3 (compressed)
+Block length     : 4096 Bytes
+Memory Position  : 0x006000

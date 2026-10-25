@@ -1,0 +1,6 @@
+19:43:10 192.168.1.21 Q humax.onlime.ru type=1
+19:43:10 192.168.1.21 Q humax.onlime.ru type=1
+19:48:06 192.168.1.18 Q ya.ru type=1
+20:27:39 DNS poison listening on 0.0.0.0:15353 upstream=192.168.1.1 overrides=humax.onlime.ru, www.humax.onlime.ru
+20:27:40 127.0.0.1 Q humax.onlime.ru type=1 -> 192.168.1.18 (local)
+20:27:40 127.0.0.1 Q ya.ru type=1

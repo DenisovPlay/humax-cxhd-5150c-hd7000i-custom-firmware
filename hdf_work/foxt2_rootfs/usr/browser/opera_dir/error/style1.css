@@ -1,0 +1,23 @@
+body {
+    margin:50px;
+    #background-color:black;
+    color:#c8c8c8;
+    font-family:"DejaVu Sans";
+}
+
+#erricon {
+    position:absolute;
+    left:306px;
+    top:296px;
+}
+
+h1 {
+    position:absolute;
+    color:#c8c8c8;
+    font-size:24px;
+    left:280px;
+    top:308px;
+    margin:0px;
+    padding:0px;
+    line-height:34px;
+}

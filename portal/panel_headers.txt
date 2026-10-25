@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Server: nginx
+Date: Fri, 23 Oct 2026 17:20:37 GMT
+Content-Type: text/html
+Content-Length: 494
+Last-Modified: Wed, 21 Oct 2026 06:36:27 GMT
+Connection: keep-alive
+Keep-Alive: timeout=20
+ETag: "6ad85d6b-1ee"
+Cache-Control: no-cache
+Accept-Ranges: bytes
+

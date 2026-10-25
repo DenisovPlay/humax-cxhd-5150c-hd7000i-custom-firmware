@@ -1,0 +1,22 @@
+#!/bin/sh
+
+[ -x /sbin/iwconfig ] || exit 0
+
+[ -n "$IF_WIRELESS_ESSID" ] && iwconfig "$IFACE" essid "$IF_WIRELESS_ESSID"
+[ -n "$IF_WIRELESS_FREQ" ] && iwconfig "$IFACE" freq $IF_WIRELESS_FREQ
+[ -n "$IF_WIRELESS_CHANNEL" ] && iwconfig "$IFACE" channel $IF_WIRELESS_CHANNEL
+
+[ -n "$IF_WIRELESS_SENS" ] && iwconfig "$IFACE" sens $IF_WIRELESS_SENS
+[ -n "$IF_WIRELESS_MODE" ] && iwconfig "$IFACE" mode $IF_WIRELESS_MODE
+[ -n "$IF_WIRELESS_AP" ] && iwconfig "$IFACE" ap $IF_WIRELESS_AP
+[ -n "$IF_WIRELESS_RATE" ] && iwconfig iwconfig "$IFACE" rate $IF_WIRELESS_RATE
+[ -n "$IF_WIRELESS_RTS" ] && iwconfig "$IFACE" rts $IF_WIRELESS_RTS
+[ -n "$IF_WIRELESS_FRAG" ] && iwconfig "$IFACE" frag $IF_WIRELESS_FRAG
+[ -n "$IF_WIRELESS_POWER" ] && iwconfig "$IFACE" power $IF_WIRELESS_POWER
+[ -n "$IF_WIRELESS_NWID" ] && iwconfig "$IFACE" nwid "$IF_WIRELESS_NWID"
+[ -n "$IF_WIRELESS_NICK" ] && iwconfig "$IFACE" nick "$IF_WIRELESS_NICK"
+
+
+[ -n "$IF_WIRELESS_COMMIT" ] && iwconfig "$IFACE" commit
+
+exit 0

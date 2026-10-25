@@ -1,0 +1,90 @@
+images:
+# Try to use release-yyyyMMdd image if available. Note that release-yyyyMMdd will be removed after several months.
+
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-genericcloud-amd64-20261001-2618.qcow2"
+  arch: "x86_64"
+  digest: "sha512:f46f0671a6e5bdec5291ab8972bae2f10e5408c2f64a74078f11efc2f06a436a9d0313ed50e0472542eeabf780e9f7c792ac0a314c6c20507fcd9fd81b468c3d"
+  variant: "genericcloud"
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-genericcloud-arm64-20261001-2618.qcow2"
+  arch: "aarch64"
+  digest: "sha512:d8470b8c6c38fead046c794b5800a5a7b96672d5bcf543cc230ceb0c4b8ace05ed341a0c8928045422243fde26b2f1f2f58e99244c65709ffda2e3d4b674dd5a"
+  variant: "genericcloud"
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-generic-ppc64el-20261001-2618.qcow2"
+  arch: "ppc64le"
+  digest: "sha512:cccaea1204047c78cd0427a4d71f1a6ff2dde57b9ae25fa9c221bfcdef91301455fe88f922455cf02f8fdbfa4b75b5adec53760a81fd53b3f810b4b3de7a8658"
+  variant: "generic"
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-generic-riscv64-20261001-2618.qcow2"
+  arch: "riscv64"
+  digest: "sha512:cf6b44fb2eed551785a5764fdf9b6e74f736b47e1134bf1a625238139b445c93b8290ee689e3b7a29aac42e13609750efd4c7b6c93220e8091d5aa8229f84ea1"
+  variant: "generic"
+# Fallback to the latest release image.
+# Hint: run `limactl prune` to invalidate the cache
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-genericcloud-amd64-daily.qcow2
+  arch: x86_64
+  variant: "genericcloud"
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-genericcloud-arm64-daily.qcow2
+  arch: aarch64
+  variant: "genericcloud"
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-generic-ppc64el-daily.qcow2
+  arch: ppc64le
+  variant: "generic"
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-generic-riscv64-daily.qcow2
+  arch: riscv64
+  variant: "generic"
+
+# Try to use release-yyyyMMdd nocloud image if available.
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-nocloud-amd64-20261001-2618.qcow2"
+  arch: "x86_64"
+  digest: "sha512:456f244f66bdfad45be8c1378630effac0ea2a67e826c99c280edb8a40b747b73aa67057fa39130aacd53df82a662683e06238667fd1f15bbda581c02383eb46"
+  variant: "nocloud"
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-nocloud-arm64-20261001-2618.qcow2"
+  arch: "aarch64"
+  digest: "sha512:5c0c57d5041b4fe2d1b94bed7dc3921f7a4a064e63d20ae0887cbc6e67501ff40f9a2a515290bce49590479ce641d06ec063257851d79e289cb5bf443b2963c2"
+  variant: "nocloud"
+- location: "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-nocloud-ppc64el-20261001-2618.qcow2"
+  arch: "ppc64le"
+  digest: "sha512:804e68bd8920c21ec2029a7c148cb4bc3b5341f19686be0f1018d49a9fb3e12518fd84f3ddc731a7273d0eb627f5d22ce3234c2035afedc1180d311a11ce6d77"
+  variant: "nocloud"
+
+# Fallback nocloud images
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-nocloud-amd64-daily.qcow2
+  arch: x86_64
+  variant: "nocloud"
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-nocloud-arm64-daily.qcow2
+  arch: aarch64
+  variant: "nocloud"
+
+- location: https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-nocloud-ppc64el-daily.qcow2
+  arch: ppc64le
+  variant: "nocloud"
+
+mountTypesUnsupported: [9p]
+
+# Debian 13's sshd passes an UNKNOWN peer address for vsock connections to Linux
+# audit, which tries to resolve it via LLMNR and delays interactive SSH logins.
+# Remove this workaround when the images include the OpenSSH fix:
+# https://github.com/openssh/openssh-portable/commit/e5055ef26abc
+# See https://github.com/lima-vm/lima/issues/5389
+# Debian bug report: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1147100
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    command -v systemctl >/dev/null 2>&1 || exit 0
+    command -v resolvectl >/dev/null 2>&1 || exit 0
+    conf_path=/etc/systemd/resolved.conf.d/10-lima-disable-llmnr.conf
+    conf_content='[Resolve]
+    LLMNR=no
+    '
+    if [ "$(echo "${conf_content}" | sha256sum)" != "$(sha256sum <"${conf_path}" 2>/dev/null)" ]; then
+      mkdir -p "$(dirname "${conf_path}")"
+      echo "${conf_content}" >"${conf_path}"
+      systemctl daemon-reload
+      systemctl restart systemd-resolved.service
+    fi

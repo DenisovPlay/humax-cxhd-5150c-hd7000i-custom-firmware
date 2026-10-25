@@ -1,0 +1,5 @@
+{
+  "launcher_target": "http://humax.onlime.ru:5080/",
+  "stb_ip": "192.168.1.21",
+  "panel_name": "OnLime local debug panel"
+}

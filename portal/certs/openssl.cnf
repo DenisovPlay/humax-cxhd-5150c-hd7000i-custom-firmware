@@ -1,0 +1,24 @@
+[req]
+distinguished_name = dn
+x509_extensions = v3_req
+prompt = no
+
+[dn]
+CN = humax.onlime.ru
+O = Local Debug
+C = RU
+
+[v3_req]
+subjectAltName = @alt_names
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[alt_names]
+DNS.1 = humax.onlime.ru
+DNS.2 = www.humax.onlime.ru
+DNS.3 = localhost
+DNS.4 = humaxtvportal.com
+DNS.5 = www.humaxtvportal.com
+IP.1 = 192.168.1.18
+IP.2 = 127.0.0.1

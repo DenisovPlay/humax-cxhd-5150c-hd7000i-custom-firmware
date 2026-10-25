@@ -1,0 +1,353 @@
+# file <name> <location> <mode> <uid> <gid>
+# dir <name> <mode> <uid> <gid>
+# nod <name> <mode> <uid> <gid> <dev_type> <maj> <min>
+# slink <name> <target> <mode> <uid> <gid>
+# pipe <name> <mode> <uid> <gid>
+# sock <name> <mode> <uid> <gid>
+#
+# <name>      name of the file/dir/nod/etc in the archive
+# <location>  location of the file in the current filesystem
+# <target>    link target
+# <mode>      mode/permissions of the file
+# <uid>       user id (0=root)
+# <gid>       group id (0=root)
+# <dev_type>  device type (b=block, c=character)
+# <maj>       major number of nod
+# <min>       minor number of nod
+
+
+dir /dev 755 0 0
+
+nod /dev/mem 640 0 0 c 1 1
+dir /dev/pts 755 0 0
+nod /dev/ram 640 0 0 b 1 1
+dir /dev/shm 755 0 0
+nod /dev/rtc 640 0 0 c 10 135
+nod /dev/tty 666 0 0 c 5 0
+nod /dev/kmem 640 0 0 c 1 2
+nod /dev/port 666 0 0 c 1 4
+nod /dev/zero 666 0 0 c 1 5
+nod /dev/full 666 0 0 c 1 7
+nod /dev/kmsg 640 0 0 c 1 11
+nod /dev/console 666 0 0 c 5 1
+nod /dev/random 666 0 0 c 1 8
+nod /dev/urandom 666 0 0 c 1 9
+
+nod /dev/null 666 0 0 c 1 3
+nod /dev/ptmx 666 0 0 c 5 2
+nod /dev/ram0 640 0 0 b 1 0
+nod /dev/ram1 640 0 0 b 1 1
+nod /dev/ram2 640 0 0 b 1 2
+nod /dev/ram3 640 0 0 b 1 3
+
+nod /dev/hda 640 0 0 b 3 0
+nod /dev/hda1 640 0 0 b 3 1
+nod /dev/hda2 640 0 0 b 3 2
+nod /dev/hda3 640 0 0 b 3 3
+nod /dev/hda4 640 0 0 b 3 4
+nod /dev/hda5 640 0 0 b 3 5
+nod /dev/hda6 640 0 0 b 3 6
+nod /dev/hda7 640 0 0 b 3 7
+nod /dev/hda8 640 0 0 b 3 8
+
+nod /dev/sda 640 0 0 b 8 0
+nod /dev/sda1 640 0 0 b 8 1
+nod /dev/sda2 640 0 0 b 8 2
+nod /dev/sda3 640 0 0 b 8 3
+nod /dev/sda4 640 0 0 b 8 4
+nod /dev/sda5 640 0 0 b 8 5
+nod /dev/sda6 640 0 0 b 8 6
+nod /dev/sda7 640 0 0 b 8 7
+nod /dev/sda8 640 0 0 b 8 8
+nod /dev/sdb 640 0 0 b 8 16
+nod /dev/sdb1 640 0 0 b 8 17
+nod /dev/sdb2 640 0 0 b 8 18
+nod /dev/sdb3 640 0 0 b 8 19
+nod /dev/sdb4 640 0 0 b 8 20
+nod /dev/sdb5 640 0 0 b 8 21
+nod /dev/sdb6 640 0 0 b 8 22
+nod /dev/sdb7 640 0 0 b 8 23
+nod /dev/sdb8 640 0 0 b 8 24
+nod /dev/sdc 640 0 0 b 8 32
+nod /dev/sdc1 640 0 0 b 8 33
+nod /dev/sdc2 640 0 0 b 8 34
+nod /dev/sdc3 640 0 0 b 8 35
+nod /dev/sdc4 640 0 0 b 8 36
+nod /dev/sdc5 640 0 0 b 8 37
+nod /dev/sdc6 640 0 0 b 8 38
+nod /dev/sdc7 640 0 0 b 8 39
+nod /dev/sdc8 640 0 0 b 8 40
+nod /dev/sdd 640 0 0 b 8 48
+nod /dev/sdd1 640 0 0 b 8 49
+nod /dev/sdd2 640 0 0 b 8 50
+nod /dev/sdd3 640 0 0 b 8 51
+nod /dev/sdd4 640 0 0 b 8 52
+nod /dev/sdd5 640 0 0 b 8 53
+nod /dev/sdd6 640 0 0 b 8 54
+nod /dev/sdd7 640 0 0 b 8 55
+nod /dev/sdd8 640 0 0 b 8 56
+nod /dev/sde 640 0 0 b 8 64
+nod /dev/sde1 640 0 0 b 8 65
+nod /dev/sde2 640 0 0 b 8 66
+nod /dev/sde3 640 0 0 b 8 67
+nod /dev/sde4 640 0 0 b 8 68
+nod /dev/sde5 640 0 0 b 8 69
+nod /dev/sde6 640 0 0 b 8 70
+nod /dev/sde7 640 0 0 b 8 71
+nod /dev/sde8 640 0 0 b 8 72
+nod /dev/sdf 640 0 0 b 8 80
+nod /dev/sdf1 640 0 0 b 8 81
+nod /dev/sdf2 640 0 0 b 8 82
+nod /dev/sdf3 640 0 0 b 8 83
+nod /dev/sdf4 640 0 0 b 8 84
+nod /dev/sdf5 640 0 0 b 8 85
+nod /dev/sdf6 640 0 0 b 8 86
+nod /dev/sdf7 640 0 0 b 8 87
+nod /dev/sdf8 640 0 0 b 8 88
+nod /dev/sdg 640 0 0 b 8 96
+nod /dev/sdg1 640 0 0 b 8 97
+nod /dev/sdg2 640 0 0 b 8 98
+nod /dev/sdg3 640 0 0 b 8 99
+nod /dev/sdg4 640 0 0 b 8 100
+nod /dev/sdg5 640 0 0 b 8 101
+nod /dev/sdg6 640 0 0 b 8 102
+nod /dev/sdg7 640 0 0 b 8 103
+nod /dev/sdg8 640 0 0 b 8 104
+nod /dev/sdh 640 0 0 b 8 112
+nod /dev/sdh1 640 0 0 b 8 113
+nod /dev/sdh2 640 0 0 b 8 114
+nod /dev/sdh3 640 0 0 b 8 115
+nod /dev/sdh4 640 0 0 b 8 116
+nod /dev/sdh5 640 0 0 b 8 117
+nod /dev/sdh6 640 0 0 b 8 118
+nod /dev/sdh7 640 0 0 b 8 119
+nod /dev/sdh8 640 0 0 b 8 120
+nod /dev/sdi 640 0 0 b 8 128
+nod /dev/sdi1 640 0 0 b 8 129
+nod /dev/sdi2 640 0 0 b 8 130
+nod /dev/sdi3 640 0 0 b 8 131
+nod /dev/sdi4 640 0 0 b 8 132
+nod /dev/sdi5 640 0 0 b 8 133
+nod /dev/sdi6 640 0 0 b 8 134
+nod /dev/sdi7 640 0 0 b 8 135
+nod /dev/sdi8 640 0 0 b 8 136
+nod /dev/hmxsdcon 640 0 0 c 241 0
+
+#nod /dev/tty0 666 0 0 c 4 0
+#nod /dev/tty1 666 0 0 c 4 1
+#nod /dev/tty2 666 0 0 c 4 2
+#nod /dev/tty3 666 0 0 c 4 3
+#nod /dev/tty4 666 0 0 c 4 4
+#nod /dev/tty5 666 0 0 c 4 5
+#nod /dev/tty6 666 0 0 c 4 6
+#nod /dev/tty7 666 0 0 c 4 7
+
+nod /dev/loop0 640 0 0 b 7 0
+#nod /dev/loop1 640 0 0 b 7 1
+#nod /dev/loop2 640 0 0 b 7 2
+#nod /dev/loop3 640 0 0 b 7 3
+#nod /dev/loop4 640 0 0 b 7 4
+#nod /dev/loop5 640 0 0 b 7 5
+#nod /dev/loop6 640 0 0 b 7 6
+#nod /dev/loop7 640 0 0 b 7 7
+#nod /dev/loop8 640 0 0 b 7 8
+
+nod /dev/ptyp0 666 0 0 c 2 0
+nod /dev/ptyp1 666 0 0 c 2 1
+nod /dev/ptyp2 666 0 0 c 2 2
+nod /dev/ptyp3 666 0 0 c 2 3
+nod /dev/ptyp4 666 0 0 c 2 4
+nod /dev/ptyp5 666 0 0 c 2 5
+nod /dev/ptyp6 666 0 0 c 2 6
+nod /dev/ptyp7 666 0 0 c 2 7
+nod /dev/ptyp8 666 0 0 c 2 8
+nod /dev/ptyp9 666 0 0 c 2 9
+
+#nod /dev/ttyp0 666 0 0 c 3 0
+#nod /dev/ttyp1 666 0 0 c 3 1
+#nod /dev/ttyp2 666 0 0 c 3 2
+#nod /dev/ttyp3 666 0 0 c 3 3
+#nod /dev/ttyp4 666 0 0 c 3 4
+#nod /dev/ttyp5 666 0 0 c 3 5
+#nod /dev/ttyp6 666 0 0 c 3 6
+#nod /dev/ttyp7 666 0 0 c 3 7
+#nod /dev/ttyp8 666 0 0 c 3 8
+
+#nod /dev/ttyP0 666 0 0 c 57 0
+#nod /dev/ttyP1 666 0 0 c 57 1
+#nod /dev/ttyP2 666 0 0 c 57 2
+#nod /dev/ttyP3 666 0 0 c 57 3
+
+nod /dev/ttyS0 666 0 0 c 4 64
+nod /dev/ttyS1 666 0 0 c 4 65
+nod /dev/ttyS2 666 0 0 c 4 66
+nod /dev/ttyS3 666 0 0 c 4 67
+nod /dev/ttyS64 666 0 0 c 4 128
+
+nod /dev/mtd0 640 0 0 c 90 0
+nod /dev/mtd1 640 0 0 c 90 2
+nod /dev/mtd2 640 0 0 c 90 4
+nod /dev/mtd3 640 0 0 c 90 6
+nod /dev/mtd4 640 0 0 c 90 8
+nod /dev/mtd5 640 0 0 c 90 10
+nod /dev/mtd6 640 0 0 c 90 12
+nod /dev/mtd7 640 0 0 c 90 14
+nod /dev/mtd8 640 0 0 c 90 16
+nod /dev/mtd9 640 0 0 c 90 18
+nod /dev/mtd10 640 0 0 c 90 20
+nod /dev/mtd11 640 0 0 c 90 22
+nod /dev/mtd12 640 0 0 c 90 24
+nod /dev/mtd13 640 0 0 c 90 26
+nod /dev/mtd14 640 0 0 c 90 28
+nod /dev/mtd15 640 0 0 c 90 30
+
+nod /dev/mtdblock0 640 0 0 b 31 0
+nod /dev/mtdblock1 640 0 0 b 31 1
+nod /dev/mtdblock2 640 0 0 b 31 2
+nod /dev/mtdblock3 640 0 0 b 31 3
+nod /dev/mtdblock4 640 0 0 b 31 4
+nod /dev/mtdblock5 640 0 0 b 31 5
+nod /dev/mtdblock6 640 0 0 b 31 6
+nod /dev/mtdblock7 640 0 0 b 31 7
+nod /dev/mtdblock8 640 0 0 b 31 8
+nod /dev/mtdblock9 640 0 0 b 31 9
+nod /dev/mtdblock10 640 0 0 b 31 10
+nod /dev/mtdblock11 640 0 0 b 31 11
+nod /dev/mtdblock12 640 0 0 b 31 12
+nod /dev/mtdblock13 640 0 0 b 31 13
+nod /dev/mtdblock14 640 0 0 b 31 14
+nod /dev/mtdblock15 640 0 0 b 31 15
+
+# broadcom device nod
+# settop api proxy
+#nod /dev/bcmsettopapi 666 0 0 c 204 0
+nod /dev/brcm0 666 0 0 c 30 0
+nod /dev/bcmfpga 666 0 0 c 38 0
+
+# BCHS usb device
+nod /dev/bt_usb 666 0 0 c 254 0
+
+# SUPPORT USB to Serial device
+nod /dev/ttyUSB0 666 0 0 c 188 0
+
+# input device
+dir /dev/input 755 0 0
+nod /dev/input/event0 666 0 0 c 13 64
+nod /dev/input/event1 666 0 0 c 13 65
+nod /dev/input/event2 666 0 0 c 13 66
+nod /dev/input/event3 666 0 0 c 13 67
+nod /dev/input/event4 666 0 0 c 13 68
+nod /dev/input/event5 666 0 0 c 13 69
+nod /dev/input/event6 666 0 0 c 13 70
+nod /dev/input/event7 666 0 0 c 13 71
+nod /dev/input/event8 666 0 0 c 13 72
+nod /dev/input/event9 666 0 0 c 13 73
+
+
+
+
+
+#nod /dev/bcmgraphics_0 666 0 0 c 30 0
+#nod /dev/bcmgraphics_1 666 0 0 c 30 1
+#nod /dev/bcmrecord_0 666 0 0 c 30 2
+#nod /dev/bcmrecord_1 666 0 0 c 30 3
+#nod /dev/bcmrecord_2 666 0 0 c 30 3
+#nod /dev/bcmrecord_3 666 0 0 c 30 3
+#nod /dev/bcmindex_0 666 0 0 c 30 5
+#nod /dev/bcmindex_1 666 0 0 c 30 6
+#nod /dev/bcmindex_2 666 0 0 c 30 6
+#nod /dev/bcmindex_3 666 0 0 c 30 6
+#nod /dev/bcmplay_0 666 0 0 c 30 8
+#nod /dev/bcmplay_1 666 0 0 c 30 9
+#nod /dev/bcmpcm_0 666 0 0 c 30 12
+#nod /dev/bcmpcm_1 666 0 0 c 30 13
+#nod /dev/bcmpcmcapture_0 666 0 0 c 30 14
+#nod /dev/bcmpcmcapture_1 666 0 0 c 30 15
+#nod /dev/bcmmessage 666 0 0 c 30 18
+#nod /dev/bcmtransport 666 0 0 c 30 19
+#nod /dev/bcmdma 666 0 0 c 30 20
+#nod /dev/bcmplayes_0 666 0 0 c 30 24
+#nod /dev/bcmplayes_1 666 0 0 c 30 25
+#nod /dev/bcmplayes_2 666 0 0 c 30 26
+#nod /dev/bcmplayes_3 666 0 0 c 30 27
+#nod /dev/bcmvbi 666 0 0 c 30 30
+#nod /dev/bcmoutput_0 666 0 0 c 30 33
+#nod /dev/bcmoutput_1 666 0 0 c 30 34
+#nod /dev/bcmio 666 0 0 c 30 35
+#nod /dev/bcmpaxel 666 0 0 c 30 36
+
+# frontend
+#nod /dev/bcmleds 666 0 0 c 31 0
+#nod /dev/bcmkeypad 666 0 0 c 31 1
+#nod /dev/bcmsejinkbd 666 0 0 c 31 3
+#nod /dev/bcmremote_a 666 0 0 c 31 14
+#nod /dev/bcmremote_b 666 0 0 c 31 15
+#nod /dev/bcmsejinrem 666 0 0 c 31 16
+#nod /dev/bcmtuner 666 0 0 c 31 11
+#nod /dev/bcmqamoob 666 0 0 c 31 9
+#nod /dev/bcmupggpio 666 0 0 c 31 12
+#nod /dev/bcmupgi2c  666 0 0 c 31 22
+#nod /dev/scarda 666 0 0 c 31 20
+#nod /dev/scardb 666 0 0 c 31 21
+
+#nod /dev/pod 666 0 0 c 38 0
+
+# kfir
+#nod /dev/kf2x00 666 0 0 c 203 0
+#nod /dev/kf2x01 666 0 0 c 203 1
+#nod /dev/kfir0 666 0 0 c 203 0
+
+# settop api proxy
+#nod /dev/bcmsettopapi 666 0 0 c 204 0
+
+# general
+#nod /dev/bcmdebug 666 0 0 c 30 21
+
+
+# streamer
+#nod /dev/strm0 666 0 0 c 50 0
+#nod /dev/strm1 666 0 0 c 50 1
+#nod /dev/strm2 666 0 0 c 50 2
+#nod /dev/strm3 666 0 0 c 50 3
+#nod /dev/strm4 666 0 0 c 50 4
+#nod /dev/strm5 666 0 0 c 50 5
+#nod /dev/strm6 666 0 0 c 50 6
+#nod /dev/strm7 666 0 0 c 50 7
+#nod /dev/strm8 666 0 0 c 50 8
+#nod /dev/strm9 666 0 0 c 50 9
+#nod /dev/strm10 666 0 0 c 50 10
+#nod /dev/strm11 666 0 0 c 50 11
+#nod /dev/strm12 666 0 0 c 50 12
+
+# nexus
+nod /dev/nexus_platform 666 0 0 c 33 0
+nod /dev/nexus_uart 666 0 0 c 33 1
+nod /dev/nexus_smartcard 666 0 0 c 33 2
+nod /dev/nexus_hdmi_output 666 0 0 c 33 3
+nod /dev/nexus_sync_channel 666 0 0 c 33 4
+nod /dev/nexus_astm 666 0 0 c 33 5
+nod /dev/nexus_display 666 0 0 c 33 6
+nod /dev/nexus_graphics2d 666 0 0 c 33 7
+nod /dev/nexus_surface 666 0 0 c 33 8
+nod /dev/nexus_audio 666 0 0 c 33 9
+nod /dev/nexus_video_decoder 666 0 0 c 33 10
+nod /dev/nexus_transport 666 0 0 c 33 11
+nod /dev/nexus_dma 666 0 0 c 33 12
+nod /dev/nexus_security 666 0 0 c 33 13
+nod /dev/nexus_spi 666 0 0 c 33 14
+nod /dev/nexus_frontend 666 0 0 c 33 15
+nod /dev/nexus_keypad 666 0 0 c 33 16
+nod /dev/nexus_rfm 666 0 0 c 33 17
+nod /dev/nexus_uhf_input 666 0 0 c 33 18
+nod /dev/nexus_input_capture 666 0 0 c 33 19
+nod /dev/nexus_ir_blaster 666 0 0 c 33 20
+nod /dev/nexus_ir_input 666 0 0 c 33 21
+nod /dev/nexus_led 666 0 0 c 33 22
+nod /dev/nexus_gpio 666 0 0 c 33 23
+nod /dev/nexus_i2c 666 0 0 c 33 24
+nod /dev/nexus_pwm 666 0 0 c 33 25
+nod /dev/nexus_core 666 0 0 c 33 26
+nod /dev/nexus_proxy 666 0 0 c 33 27
+
+#pppoe
+nod /dev/ppp 666 0 0 c 108 0

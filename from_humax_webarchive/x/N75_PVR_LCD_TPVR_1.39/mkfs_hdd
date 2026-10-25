@@ -1,0 +1,21 @@
+#!/bin/sh
+
+echo "==================="
+echo "partitioning hdd..."
+echo "==================="
+dd if=/dev/zero of=/dev/hda count=1 bs=1k > /dev/null
+fdisk /dev/hda < /etc/partition_hdd.txt > /dev/null
+
+
+echo "=================="
+echo "Formatting disk..."
+echo "=================="
+mke2fs -m 0 /dev/hda2 > /dev/null
+mke2fs -m 0 /dev/hda3 > /dev/null
+#sleep 1
+
+echo "================="
+echo "tuning to ext3..."
+echo "================="
+tune2fs -j -c -1 -i 0 /dev/hda2 > /dev/null
+tune2fs -j -c -1 -i 0 /dev/hda3 > /dev/null

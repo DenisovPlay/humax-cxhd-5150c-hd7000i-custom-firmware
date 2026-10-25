@@ -1,0 +1,58 @@
+nohup: can't detach from console: Inappropriate ioctl for device
+listening http://0.0.0.0:80
+listening https://0.0.0.0:443
+listening http://0.0.0.0:5080
+listening https://0.0.0.0:5001
+READY launcher_target=http://humax.onlime.ru:5080/ stb_ip=192.168.1.21
+dashboard: http://192.168.1.18:5080/dashboard
+Generating a 2048 bit RSA private key
+..+++++
+........................................................................................+++++
+writing new private key to '/Users/andrey/Desktop/humax/humax-gpl/certs/humax.key'
+-----
+Traceback (most recent call last):
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 640, in <module>
+    main()
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 621, in main
+    start_server("http-launcher", "http", args.http_launcher, None, "launcher")
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 585, in start_server
+    srv = Server(("0.0.0.0", port), Handler)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+listening http://0.0.0.0:80
+listening https://0.0.0.0:443
+listening http://0.0.0.0:5080
+listening https://0.0.0.0:5001
+READY launcher_target=http://humax.onlime.ru:5080/ stb_ip=192.168.1.21
+dashboard: http://192.168.1.18:5080/dashboard
+Traceback (most recent call last):
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 705, in <module>
+    main()
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 686, in main
+    start_server("http-launcher", "http", args.http_launcher, None, "launcher")
+  File "/Users/andrey/Desktop/humax/humax-gpl/portal_server.py", line 650, in start_server
+    srv = Server(("0.0.0.0", port), Handler)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+listening http://0.0.0.0:80
+listening https://0.0.0.0:443
+listening http://0.0.0.0:5080
+listening https://0.0.0.0:5001
+READY launcher_target=http://humax.onlime.ru:5080/ stb_ip=192.168.1.21
+dashboard: http://192.168.1.18:5080/dashboard
+listening http://0.0.0.0:80
+listening https://0.0.0.0:443
+listening http://0.0.0.0:5080
+listening https://0.0.0.0:5001
+READY launcher_target=http://humax.onlime.ru:5080/ stb_ip=192.168.1.21
+dashboard: http://192.168.1.18:5080/dashboard

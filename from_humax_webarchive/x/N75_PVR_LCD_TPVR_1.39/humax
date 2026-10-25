@@ -1,0 +1,79 @@
+chmod 777 /mnt/usb/* -R
+
+upgrade ()
+{
+   if [ -f /mnt/usb/$1 ]; then
+      /mnt/usb/compare /mnt/usb/$1 /dev/$2
+      if [ $? -ne 0 ]; then
+         echo "copying $1"
+         cp /mnt/usb/$1 /dev/$2
+      else
+         echo "same version skip $1"
+      fi
+   fi
+
+   if [ -f /mnt/usb/$3 ]; then
+      /mnt/usb/compare /mnt/usb/$3 /dev/$2
+      if [ $? -ne 0 ]; then
+         echo "copying $3"
+         cp /mnt/usb/$3 /dev/$2
+      else
+         echo "same version skip $3"
+      fi
+   fi
+
+   if [ -f /mnt/usb/$3 ]; then
+      /mnt/usb/compare /mnt/usb/$3 /dev/$3
+      if [ $? -ne 0 ]; then
+         echo "copying $3"
+         cp /mnt/usb/$3 /dev/$3
+      else
+         echo "same version skip $3"
+      fi
+   fi
+
+   if [ -f /mnt/usb/$4 ]; then
+      echo "check $4"
+      /mnt/usb/hdf2bin /mnt/usb/$4 /mnt/usb/$3
+      /mnt/usb/compare /mnt/usb/$3 /dev/$2
+      if [ $? -ne 0 ]; then
+         echo "copying $3"
+         cp /mnt/usb/$3 /dev/$2
+      else
+         echo "same version skip $4"
+      fi
+   fi
+}
+
+CHECK=`fdisk -l /dev/hda | grep -c '2000344+`
+echo "check : $CHECK"
+
+if [ $CHECK -ne 1 ]; then
+   echo "remake partition"
+   sh /mnt/usb/mkfs_hdd
+else
+   echo "partition is already remaked"
+fi
+
+echo "=================="
+echo " usb upgrading..."
+echo "=================="
+/app/PVRUpgrade 0
+
+#upgrade new image
+upgrade intelidtrom.target mtdblock0 boot.img boot.hdf
+upgrade zImage.bin mtdblock1 zimage.img zimage.hdf
+upgrade root.image mtdblock2 root.img root.hdf
+upgrade app.image mtdblock3 app.img app.hdf
+upgrade appdata mtdblock4 appdata.img appdata.hdf
+
+echo "================================================="
+echo "USB upgrade task completed, reboot!!"
+echo "업그레이드가 끝났습니다. usb를 빼고 재부팅하세요."
+echo "================================================="
+/etc/crazy_led.sh&
+while :
+do
+   read REBOOT
+done
+

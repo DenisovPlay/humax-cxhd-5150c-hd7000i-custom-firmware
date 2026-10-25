@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""DNS forwarder with poison overrides. Logs all queries to dns_log.txt.
+OVERRIDES map domain -> IP returned to LAN clients."""
+import socket, threading, time, sys, os
+
+UPSTREAM = ("192.168.1.1", 53)
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOG = open(HERE + "/dns_log.txt", "a", buffering=1)
+OVERRIDES = {
+    "humax.onlime.ru": "192.168.1.18",
+}
+
+def qname_and_type(data):
+    try:
+        i = 12
+        labels = []
+        while i < len(data):
+            L = data[i]
+            if L == 0:
+                i += 1
+                break
+            labels.append(data[i+1:i+1+L].decode("utf-8", "replace"))
+            i += 1 + L
+        qt = int.from_bytes(data[i:i+2], "big")
+        return ".".join(labels).lower(), qt, i + 4  # end of question
+    except Exception:
+        return "?", 0, len(data)
+
+def build_a_resp(data, ip, qend):
+    tid = data[:2]
+    header = tid + b"\x81\x80" + b"\x00\x01\x00\x01\x00\x00\x00\x00"
+    question = data[12:qend]
+    rr = b"\xc0\x0c" + b"\x00\x01\x00\x01" + b"\x00\x00\x00\x3c" + b"\x00\x04"
+    rr += bytes(int(x) for x in ip.split("."))
+    return header + question + rr
+
+def handle(data, addr, sock):
+    name, qt, qend = qname_and_type(data)
+    ts = time.strftime("%H:%M:%S")
+    if name in OVERRIDES:
+        LOG.write(f"{ts} {addr[0]} Q {name} type={qt} -> POISONED {OVERRIDES[name]}\n")
+        print(f"{ts} {addr[0]} Q {name} -> POISONED {OVERRIDES[name]}", flush=True)
+        sock.sendto(build_a_resp(data, OVERRIDES[name], qend), addr)
+        return
+    LOG.write(f"{ts} {addr[0]} Q {name} type={qt}\n")
+    try:
+        up = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        up.settimeout(3)
+        up.sendto(data, UPSTREAM)
+        resp, _ = up.recvfrom(4096)
+        sock.sendto(resp, addr)
+        up.close()
+    except Exception as e:
+        LOG.write(f"{ts} {addr[0]} ERR {e}\n")
+
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("0.0.0.0", 53))
+    print("DNS poisoner up. overrides:", OVERRIDES, flush=True)
+    while True:
+        data, addr = sock.recvfrom(4096)
+        threading.Thread(target=handle, args=(data, addr, sock), daemon=True).start()
+
+main()

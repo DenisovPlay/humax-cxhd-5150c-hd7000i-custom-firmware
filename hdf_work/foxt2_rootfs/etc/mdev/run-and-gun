@@ -1,0 +1,28 @@
+#!/bin/sh
+
+if ! echo ${MDEV#sd[a-z]} | grep -q '[0-9]' ; then
+	exit 0
+fi
+
+device=/dev/$MDEV
+mount_path=/media/$MDEV
+
+case "$ACTION" in
+	add*)
+#		mkdir -p $mount_path
+#		mount -t vfat $device $mount_path
+#		find $mount_path -name 'sting*.img' > /tmp/firmware_list.txt
+#		killall neo
+#		cat /tmp/firmware_list.txt | \
+#		while read list ; do
+#			mtd -r write $list auto
+#		done
+#		rm /tmp/firmware_list.txt
+		;;
+	remove*)
+		umount -l $device
+		rm -rf $mount_path
+		;;
+	*)
+		;;
+esac

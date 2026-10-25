@@ -1,0 +1,124 @@
+#!/bin/sh
+
+[ -x /sbin/ifup ] || exit 0
+[ -x /sbin/ifdown ] || exit 0
+
+. /lib/lsb/init-functions
+. /etc/default/rcS
+
+spoofprotect_rp_filter () {
+    if [ -e /proc/sys/net/ipv4/conf/all/rp_filter ]; then
+	for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
+	    echo 1 > $f
+	done
+	return 0
+    else
+	return 1
+    fi
+}
+
+
+spoofprotect () {
+    if [ "$VERBOSE" != no ]; then
+        log_begin_msg "Setting up IP spoofing protection..."
+        spoofprotect_rp_filter
+        log_end_msg $?
+    else
+        if ! spoofprotect_rp_filter; then
+	    log_failure_msg "Failed to setup IP spoofing protection"
+		fi
+    fi
+}
+
+ip_forward () {
+    if [ -e /proc/sys/net/ipv4/ip_forward ]; then
+        if [ "$VERBOSE" != no ]; then
+            log_begin_msg "Enabling packet forwarding..."
+            echo 1 > /proc/sys/net/ipv4/ip_forward
+            log_end_msg $?
+        else
+            echo 1 > /proc/sys/net/ipv4/ip_forward
+        fi
+    fi
+}
+
+syncookies () {
+    if [ -e /proc/sys/net/ipv4/tcp_syncookies ]; then
+        if [ "$VERBOSE" != no ]; then
+            log_begin_msg "Enabling TCP/IP SYN cookies..."
+            echo 1 > /proc/sys/net/ipv4/tcp_syncookies
+            log_end_msg $?
+        else
+            echo 1 > /proc/sys/net/ipv4/tcp_syncookies
+        fi
+    fi
+}
+
+doopt () {
+    optname=$1
+    default=$2
+    opt=`grep "^$optname=" /etc/network/options`
+    if [ -z "$opt" ]; then
+        opt="$optname=$default"
+    fi
+    optval=${opt#$optname=}
+    if [ "$optval" = "yes" ]; then
+        eval $optname
+    fi
+}
+
+case "$1" in
+    start)
+	doopt spoofprotect yes
+        doopt syncookies no
+        doopt ip_forward no
+if [ "$VERBOSE" != no ]; then
+		log_begin_msg "Configuring network interfaces..."
+fi
+        if [ "$VERBOSE" != no ]; then
+            ifup -a
+        else
+            ifup -a >/dev/null 2>&1
+        fi
+if [ "$VERBOSE" != no ]; then
+	log_end_msg $?
+fi
+	;;
+  stop)
+if [ "$VERBOSE" != no ]; then
+	log_begin_msg "Deconfiguring network interfaces..."
+fi
+	if [ "$VERBOSE" != no ]; then
+	    ifdown -a
+	else
+	    ifdown -a >/dev/null 2>&1
+	fi
+if [ "$VERBOSE" != no ]; then
+	log_end_msg $?
+fi
+	;;
+  restart|reload)
+	doopt spoofprotect yes
+        doopt syncookies no
+        doopt ip_forward no
+if [ "$VERBOSE" != no ]; then
+		log_begin_msg "Reconfiguring network interfaces..."
+fi
+        if [ "$VERBOSE" != no ]; then
+            ifdown -a
+            ifup -a
+        else
+            ifdown -a >/dev/null 2>&1
+            ifup -a > /dev/null 2>&1
+        fi
+if [ "$VERBOSE" != no ]; then
+	log_end_msg $?
+fi
+	;;
+  *)
+if [ "$VERBOSE" != no ]; then
+	log_success_msg "Usage: /etc/init.d/networking {start|stop|restart|force-reload}"
+fi
+	exit 1
+	;;
+esac

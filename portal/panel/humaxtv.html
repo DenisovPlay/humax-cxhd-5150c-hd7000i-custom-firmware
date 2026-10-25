@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Humax TV Portal</title>
+<style type="text/css">
+html,body { margin:0; padding:0; background:#111; color:#eee; font:14px Arial; }
+#box { padding:20px; }
+h1 { color:#7CFC00; font-size:20px; }
+pre { background:#000; color:#0f0; padding:8px; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="box">
+<h1>Humax TV Portal (local)</h1>
+<div id="st">reading system info...</div>
+<pre id="info"></pre>
+</div>
+<object type="valups/system" id="system" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<form id="frmSystemInfo" method="post" action="/Home/TVApps">
+<input id="DeviceID" name="DeviceID" type="hidden" value="">
+<input id="SystemID" name="SystemID" type="hidden" value="">
+<input id="SWVer" name="SWVer" type="hidden" value="">
+<input id="ModelName" name="ModelName" type="hidden" value="">
+<input id="MACAddress" name="MACAddress" type="hidden" value="">
+<input id="serialNumber" name="serialNumber" type="hidden" value="">
+<input id="screenLanguage" name="screenLanguage" type="hidden" value="">
+<input id="modelVariant" name="modelVariant" type="hidden" value="">
+</form>
+<script type="text/javascript">
+var tries = 0;
+function val(s, names) {
+    var i, v;
+    for (i = 0; i < names.length; i++) {
+        try { v = s[names[i]]; } catch (e) { v = null; }
+        if (v !== undefined && v !== null && typeof v != "function" && String(v) !== "") return String(v);
+    }
+    return "";
+}
+function fill() {
+    var s = document.getElementById("system");
+    if (!s) {
+        if (tries++ < 6) { setTimeout(fill, 700); return; }
+        document.getElementById("st").innerHTML = "system object not found";
+        return;
+    }
+    var d = {};
+    d.DeviceID = val(s, ["deviceID", "deviceId", "macAddress"]);
+    d.SystemID = val(s, ["systemId", "systemID"]);
+    d.SWVer = val(s, ["softwareVersion", "swVersion"]);
+    d.ModelName = val(s, ["modelName", "model"]);
+    d.MACAddress = val(s, ["macAddress", "mac"]);
+    d.serialNumber = val(s, ["serialNumber", "serial"]);
+    d.screenLanguage = val(s, ["screenLanguage", "language"]);
+    d.modelVariant = val(s, ["modelVariant", "variant"]);
+    var k, out = [];
+    for (k in d) {
+        document.getElementById(k).value = d[k];
+        out.push(k + "=" + d[k]);
+    }
+    document.getElementById("info").innerHTML = out.join("\n");
+    document.getElementById("st").innerHTML = "submitting...";
+    setTimeout(function () { document.getElementById("frmSystemInfo").submit(); }, 400);
+}
+window.onload = function () { setTimeout(fill, 500); };
+</script>
+</body>
+</html>

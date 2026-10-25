@@ -1,0 +1,6 @@
+#
+# Defaults for the boot scripts
+#
+
+# Set VERBOSE to 'no' if you would like a more quiet bootup.
+VERBOSE=no

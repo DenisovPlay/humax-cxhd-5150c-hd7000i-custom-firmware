@@ -1,0 +1,10 @@
+HTTP/2 200 
+server: nginx
+date: Fri, 23 Oct 2026 17:20:37 GMT
+content-type: text/html
+content-length: 494
+last-modified: Wed, 21 Oct 2026 06:36:27 GMT
+etag: "6ad85d6b-1ee"
+cache-control: no-cache
+accept-ranges: bytes
+

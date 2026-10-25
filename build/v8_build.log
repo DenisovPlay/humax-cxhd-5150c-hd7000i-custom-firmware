@@ -1,0 +1,89 @@
+=== Humax CXHD-5150C Custom Firmware Builder v8 ===
+
+[1/8] Extracting crosstools...
+  CC: mipsel-linux-uclibc-gcc (GCC) 4.2.0 20070124 (prerelease) - BRCM 11ts-20090508
+
+[2/8] Building BusyBox...
+  BusyBox: 536K statically linked
+
+[3/8] Creating initramfs rootfs...
+  romfs: 628K
+
+[4/8] Creating initramfs.cpio.gz...
+  initramfs.cpio.gz: 268067 bytes
+
+[5/8] Preparing kernel source + patches...
+  prom.c: already patched (NETCON_KARGS present)
+  prom.c appendConsoleArg+netconsole: already patched
+  arch/mips/brcmstb/common/prom.c: no HUMAX ifdefs (ok)
+  arch/mips/brcmstb/common/rac.c: no HUMAX ifdefs (ok)
+  arch/mips/brcmstb/common/brcm-pm.c: no HUMAX ifdefs (ok)
+  arch/mips/brcmstb/brcm97405b0/board.c: no HUMAX ifdefs (ok)
+  arch/mips/mm/c-r4k.c: no HUMAX ifdefs (ok)
+  arch/mips/kernel/smtc.c: no HUMAX ifdefs (ok)
+  boardmap.h: already patched
+  netconsole.c late retry: already patched
+170:#define NETCON_KARGS " netconsole=6666@192.168.1.99/eth0,6666@192.168.1.18/"
+171:#define DEFAULT_KARGS CONSOLE_KARGS RW_KARGS NETCON_KARGS
+297:		if ((strlen(cmdArg) + strlen(NETCON_KARGS)) < COMMAND_LINE_SIZE) {
+
+[6/8] Configuring kernel...
+  config setter: 78 symbols updated
+  Key configs:
+CONFIG_MIPS_BCM7405BX_NAND=y
+CONFIG_INITRAMFS_SOURCE="/build/initramfs.cpio.gz"
+CONFIG_CC_OPTIMIZE_FOR_SIZE=y
+CONFIG_MTD_BRCMNAND=y
+CONFIG_MTD_BRCMNAND_SIZE=256
+CONFIG_MTD_BRCMNAND_VERIFY_WRITE=y
+CONFIG_MTD_BRCMNAND_VERSION=5
+CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_NETCONSOLE=y
+CONFIG_SERIAL_8250_CONSOLE=y
+
+[7/8] Building kernel (few minutes; с ретраями — qemu иногда роняет 32-битный cc)...
+  kernel build OK (attempt 1)
+  Проверка HUMAX-кода:
+    arch/mips/brcmstb/common/rac.c: патч отсутствует!
+  vmlinux:     2.3M
+  vmlinux.bin: 2089913 bytes
+  entry=0x801a3000 load=0x80001000
+  trampoline: j 0x801a3000 = 0x08068c00
+  первые 8 байт образа (трамплин):  00 8c 06 08 00 00 00 00
+  initramfs embedded: 261K
+  v8 init strings in kernel: 0
+
+[8/8] Packing HDF...
+HDF Tool v1.0.4, by af123, 2011-2015.
+
+Adding custom_kernel_v8.raw (2089913 bytes)...  - not compressed -
+Adding dummy_hdr_rootfs.raw (262 bytes)...  - not compressed -
+Adding dummy_rootfs.raw (1024 bytes)...  - not compressed -
+
+Processed in: 0.08s
+
+=== HDF structure ===
+HDF Tool v1.0.4, by af123, 2011-2015.
+
+Opening /data/build/custom_firmware_v8.hdf, 2092143 bytes.
+
+  Blocks:     69
+  Model:      4
+  System ID:  8050.8400
+
+File  Offset   Address  Type  Flags  Size       Uncompressed Size
+----  ------   -------  ----  -----  ----       -----------------
+   1  0000014  80100400  1     0      2089913    -
+   2  01fe6f9  80600000  1     0      262        -
+   3  01fe837  80600400  1     0      1024       -
+
+
+=== BUILD COMPLETE ===
+-rw-r--r-- 1 root root 2.0M Oct 24 04:00 /data/build/custom_firmware_v8.hdf
+
+Ядро: 2089913 байт (лимит 2092000)
+На флешку: cp custom_firmware_v8.hdf /Volumes/UNTITLED/cxhd_5150c_upgrade.hdf
+Прошивка: CH- на передней панели + включение питания, ждать P000..P100..END
+Слушать на Mac: nc -lu 6666   (netconsole + маяки + dmesg)
+EXIT=0

