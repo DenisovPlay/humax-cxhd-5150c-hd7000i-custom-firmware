@@ -3,7 +3,7 @@
 Reverse engineering project targeting the OnLime/Rostelecom-branded Humax CXHD-5150C
 set-top box. Goal: obtain root Linux shell access on operator-locked hardware.
 
-**Status:** active — boot loop resolved at design level, CFE dump in progress.
+**Status:** active — device bricked (Y4.11 96% write → E-FE), JTAG recovery + direct Linux boot via JTAG ready.
 
 ## Важное для наших
 
@@ -81,18 +81,51 @@ andreydenisov25@gmail.com, t.me/@zeniflow_support - ПИШИТЕ СЮДА.
 - SysID changed to arbitrary values and restored — loader processes type-4 without
   signature verification
 
+### v20 kernel built (Linux 2.6.18, BCM7405 mipsel)
+- **`hdf_work/vmlinux_v20.elf`** — 2.7 MB ELF, entry `0x802AC000`, loads at `0x800B0000`
+- Compiled with: kexec, USB host/storage, FAT32, self-relocating stub v15
+- Purpose: load via JTAG `load_image` → Linux in RAM → `kexec` to any kernel from USB
+- Bypasses loader, blob-gate, and all signature checks entirely
+- **`hdf_work/custom_kernel_v20.bin`** — raw binary (2.5 MB)
+
+### Y5.06 SysID confirmed: `0x80508400`
+- `trigger_exact_sysid.hdf` (sysid_min=sysid_max=0x80508400) → flashed OK (P000→END)
+- Y5.06 has no wildcard SysID path (FFFF/FFFF → E-ID, 0000/0000 → E-ID)
+- Y4.11 wildcard path exists at `0x833917a0` but only in Y4.11 loader
+
 ---
 
-## Current Blocker
+## Current Status
 
-The loader requires a valid 256-byte blob in the partition header. Without it, every
-boot attempt ends in a chip reset before the kernel executes. The blob is device-class
-specific and lives in the Y5.06 CFE binary which we have not yet dumped.
+### Device bricked (2026-10-25)
+Attempted to reflash Y4.11 loader via USB HDF (`y411_loader_repacked.hdf`, sysid patched to
+`0x00000000/0xFFFFFFFF`). Flashed 144/150 blocks (96%), then E-FE (Flash Erase/Write error)
+on a bad NAND block. Result: partially-written Y4.11 loader — device cannot boot.
+- MICOM alive (front-panel LED shows loading animation)
+- BCM7405 ROM starts but Y4.11 crashes before UART init → UART silent
+- JTAG confirmed enabled (FUSING INFO) → recoverable
 
-**Active approaches to obtain the Y5.06 CFE:**
-1. Serial dump via WDN4OAK protocol over CP2102 UART adapter (`tools/humax_serial_dump.py`)
-2. JTAG dump via Wemos D1 mini + OpenOCD (`uart/jtagenum/`, `uart/esp8266_remote_bitbang/`)
-3. Direct NAND read via bit-bang over Wemos D1 mini (bypasses loader entirely)
+### Recovery plan (ESP8266 Wemos D1 mini in transit)
+
+**Option A — Direct Linux boot via JTAG (no NAND write, immediate):**
+```bash
+openocd -f uart/openocd_bcm7405.cfg
+# then in telnet:
+> halt
+> load_image hdf_work/vmlinux_v20.elf
+> resume 0x802AC000
+# → Linux boots from RAM, no loader, no blob, no signatures
+```
+`vmlinux_v20.elf` (2.7 MB) is ready in `hdf_work/`. Contains kexec + USB + FAT32.
+From running Linux: `kexec -l /mnt/usb/vmlinux.bin && kexec -e` to boot any kernel from USB stick.
+
+**Option B — Restore NAND loader via JTAG:**
+Write the full Y4.11 binary (`firmwares/ia_archive/extracted/FPXCCX10016_Y411/1.hdfbin-0-000000.raw`,
+393 192 bytes) to CFE NAND partition. Only the last ~24 KB (blocks 144–149) are missing;
+Option A is faster.
+
+**Previous blocker (blob-gate)** — still applies for kernel persistence, but Option A's
+kexec path lets us boot from USB indefinitely without touching NAND.
 
 ---
 
