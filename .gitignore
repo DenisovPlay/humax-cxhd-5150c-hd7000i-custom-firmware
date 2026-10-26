@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local-only archive: keep on disk, never commit
+/Прошивка-*.zip
+
+# Local runtime junk
+*.pid
