@@ -178,6 +178,8 @@ byte * jtag_ptr_from_idx(const int idx){
 
 void setup(void)
 {
+  pinMode(16, INPUT_PULLUP);
+
 #ifdef HALFCLOCK
         // for 3.3v boards. Cuts clock in half
         // normally only on avr based arduino & teensy hardware

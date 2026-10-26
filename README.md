@@ -3,33 +3,44 @@
 Reverse engineering project targeting the OnLime/Rostelecom-branded Humax CXHD-5150C
 set-top box. Goal: obtain root Linux shell access on operator-locked hardware.
 
-**Status (2026-10-26):** active — the device is bricked (Y4.11 flash stopped at
-144/150 blocks, E-FE on a bad NAND block). The JTAG programmer has arrived at the
-Ozon pickup point and has not been collected yet. Current work: JTAG bring-up →
-run our own code on the CPU → build our own loader → boot Linux from USB.
-The Y-loader flash path is abandoned.
+> ## ПИЗДЕЦ. ВСЕМ СПАСИБО. Я ЕБАЛ.
+>
+> **Проект остановлен 2026-10-27.** Приставка всё ещё кирпич, root не получен.
+> JTAG через Wemos D1 mini не поднялся: TAP/IDCODE не получен, TDO/TRST
+> плавают, стабильного scan chain нет. Wemos один раз уходил в защиту при
+> попытке жёстко подтянуть TRST к 3.3 В. Дальше без мультиметра, резисторов
+> 10к и проверки, та ли это колодка (верхняя 2x7 возле Entropic EN10024 или
+> незапаянная 2x7 на нижней стороне), продолжать смысла нет.
+> Ничего не шьём. Всё, что наработано, остаётся в репозитории.
 
-## Текущий фокус
+**Status (2026-10-27):** stopped. Device is still bricked; no root, no TAP.
+The Wemos D1 mini is flashed, the serial remote_bitbang bridge works, but the
+BCM7405 TAP/IDCODE was never found. The current hypothesis is that the visible
+2x7 header is for the Entropic EN10024, not the BCM7405; the unpopulated 2x7
+footprint on the bottom side is the next candidate. Without a multimeter and
+10k resistors this cannot be verified.
 
-Коротко для наших:
+## Что случилось с JTAG (итог)
 
-- **Приставка — кирпич.** Y4.11 прошился на 96% (144/150 блоков), дальше E-FE на
-  бэд-блоке NAND. Живого загрузчика нет: UART молчит, до Download Mode дело не
-  доходит. **Ничего не шьём.**
-- **UART-дамп (WDN4OAK) снят с повестки.** Он требует живого загрузчика/Download
-  Mode, а его нет. Инструмент и разбор протокола остаются в репо — вернёмся к ним,
-  когда свой код поднимет UART.
-- **Сейчас главное — JTAG.** Программатор (ESP8266 Wemos D1 mini) уже приехал в
-  пункт выдачи Ozon, осталось забрать. План: OpenOCD → halt → выполнить свой код
-  в DRAM → снять дампы → собрать свой загрузчик.
-- **Цель — свой лоадер, а не Y-loader.** Грузим код через JTAG, из него
-  инициализируем DRAM/NAND/USB и запускаем Linux 2.6 с флешки. Y4.11/Y5.06 больше
-  не трогаем.
-- **Что уже готово:** `hdf_work/vmlinux_v20.elf` (entry `0x802ac000`, load
-  `0x800b0000`) с kexec, USB host/storage, FAT32 и initramfs. Грузится JTAG-ом,
-  дальше `kexec` на ядро с USB.
-- **Дампы похожих коробок** (HD FOX T2, FOXSAT-HDR — тот же BCM7405) используем как
-  эталон инициализации USB/NAND/CFE.
+- **JTAG не поднялся.** Wemos D1 mini V4.0.0 прошит, serial remote_bitbang мост
+  через `uart/serial_bridge.py` работает, OpenOCD 0.12 подключается. Но
+  BCM7405 TAP/IDCODE так и не появился: TDO/TRST плавают, JTAGenum даёт только
+  шум и ложные «IDCODE» на 14 SCK / 13 MOSI.
+- **Протокол исправлен.** OpenOCD присылает `'0'..'7'` (уровни TCK/TMS/TDI), а не
+  `'c'..'f'`; reset — active-low. Это уже в
+  `uart/esp8266_serial_bitbang/esp8266_serial_bitbang.ino`.
+- **Земля.** GND у Humax — 2/4/6/8/10; 12/14 не GND. TMS/TCK/TDI (3/7/9)
+  подтянуты к 3.3 В, TDO (5) и TRST (1) висят.
+- **Wemos один раз ушёл в защиту** при прямом 3.3 В на pin 1. Больше так не
+  делать: только 10к или слабая внутренняя подтяжка, не прямое 3V3.
+- **Главное подозрение.** Верхняя 2x7-колодка стоит возле Entropic EN10024 и
+  может быть его JTAG, а не BCM7405. На нижней стороне есть незапаянная 2x7 —
+  следующий кандидат. Нужен мультиметр/прозвонка.
+- **Чего не хватило.** Мультиметра и резисторов 10к. Без них дальше — лотерея.
+  Если кто-то продолжит: проверить колодку, поставить 10к на TDO/TRST, проверить
+  цепь pin 5 → SoC, и только потом паять.
+
+Подробный разбор — в [docs/deepseek_research.md](docs/deepseek_research.md).
 
 Старые предупреждения в силе: чужие прошивки из репо не шить, ключей в них нет, без
 дампа CFE (Y5.06) подмена SysID ничего не даёт. Если у вас есть `.hdf`, которых нет
@@ -51,7 +62,7 @@ andreydenisov25@gmail.com, t.me/@zeniflow_support — ПИШИТЕ СЮДА.
 | Flash | NAND, MTD layout confirmed |
 | UART | BCM7405 UART0 (console), UART3 = MICOM |
 | JTAG | Enabled (confirmed via FUSING INFO menu) |
-| Programmer | ESP8266 Wemos D1 mini + OpenOCD `remote_bitbang` — at Ozon pickup |
+| Programmer | ESP8266 Wemos D1 mini V4.0.0 — flashed; serial `remote_bitbang` bridge works, but no TAP/IDCODE |
 
 ---
 
@@ -59,13 +70,13 @@ andreydenisov25@gmail.com, t.me/@zeniflow_support — ПИШИТЕ СЮДА.
 
 | Этап | Что делаем | Критерий успеха | Статус |
 |------|------------|-----------------|--------|
-| 0 | Забрать Wemos | плата на руках | ждёт Ozon |
-| 1 | Поднять JTAG | OpenOCD видит TAP/IDCODE, `halt` работает, читаются регистры CP0 | конфиг готов |
-| 2 | Свой код на CPU | payload в DRAM, запись маркера в память/порт, результат виден по JTAG или UART | следующий шаг |
-| 3 | Дампы | DRAM, boot ROM, CFE/лоадер из NAND (если читается через CPU) | — |
-| 4 | Свой загрузчик | DRAM + UART + NAND + USB, загрузка Linux | проектирование |
-| 5 | Linux с USB | v20 грузится через JTAG → `kexec` на ядро с флешки | образ готов |
-| 6 | Постоянная загрузка | свой лоадер в NAND, только после полного бэкапа | потом |
+| 0 | Забрать Wemos | плата на руках | готово |
+| 1 | Поднять JTAG | OpenOCD видит TAP/IDCODE, `halt` работает | **провалено**: TAP не отвечает |
+| 2 | Свой код на CPU | payload в DRAM, маркер в память/порт | заблокировано этапом 1 |
+| 3 | Дампы | DRAM, boot ROM, CFE/лоадер из NAND | заблокировано |
+| 4 | Свой загрузчик | DRAM + UART + NAND + USB, загрузка Linux | заблокировано |
+| 5 | Linux с USB | v20 через JTAG → `kexec` | образ готов, JTAG не работает |
+| 6 | Постоянная загрузка | свой лоадер в NAND после бэкапа | не начато |
 
 **Почему так.** Y-loader — единственное, что мешало: он проверяет 262-байтный
 заголовок партиции и 256-байтный блоб, а без валидного блоба уходит в bootrom и
@@ -167,15 +178,26 @@ loader — device cannot boot.
 - BCM7405 ROM starts but Y4.11 crashes before UART init → UART silent
 - JTAG confirmed enabled (FUSING INFO) → recoverable
 
-### Recovery strategy (2026-10-26)
-**Primary — JTAG + own loader, no NAND writes:**
-1. Collect the Wemos D1 mini, flash `uart/esp8266_remote_bitbang/`, connect JTAG.
-2. `openocd -f uart/openocd_bcm7405.cfg` → `halt` → verify TAP/IDCODE and CP0.
-3. Load a small payload into DRAM and prove execution (memory marker or UART output).
-4. Dump DRAM / boot ROM / whatever NAND is reachable through the CPU.
-5. Build the custom loader: DRAM init, UART console, NAND read, USB host, Linux image
-   load, jump to entry.
-6. Boot `vmlinux_v20.elf` via JTAG → `kexec` to a kernel from USB.
+### JTAG attempt (2026-10-26/27) — failed
+- Wemos D1 mini V4.0.0, serial remote_bitbang bridge via
+  `uart/serial_bridge.py` on `/dev/cu.usbserial-10` @ 500000 baud.
+- OpenOCD 0.12 with `remote_bitbang host 127.0.0.1:3335` connects; the bridge
+  receives/sends packets correctly.
+- Protocol fixed (`'0'..'7'`, active-low reset), but BCM7405 TAP/IDCODE never
+  appeared. TDO (pin 5) and TRST (pin 1) floated; pins 3/7/9 were high.
+- GND pins are 2/4/6/8/10; 12/14 are **not** GND on this header.
+- Wemos went into protection when 3.3 V was tied directly to pin 1 — suspected
+  short/wrong pin. Never hard-tie 3.3 V to a header pin again.
+- Top 2x7 header sits next to the Entropic EN10024 and may be its JTAG, not the
+  BCM7405. The unpopulated 2x7 footprint on the bottom side is the next candidate.
+- No multimeter and no 10k resistors, so the header/TDO path was not verified.
+
+### Если кто-то продолжит
+1. Мультиметр + резисторы 10к.
+2. Проверить, какая 2x7 — BCM7405 JTAG (нижняя незапаянная или верхняя).
+3. Поставить 10к на TDO (pin 5) и TRST (pin 1); не кидать 3.3 В напрямую.
+4. Прозвонить pin 5 → SoC TDO; если цепи нет — искать последовательный 0Ω.
+5. Только потом JTAGenum/OpenOCD; иначе — полный дамп NAND программатором.
 
 **Fallback — restore NAND (later):** write a full known-good loader back to the CFE
 NAND partition. This needs a complete NAND dump or a matching image and is postponed
@@ -207,32 +229,47 @@ Notes:
 
 ---
 
-## JTAG Setup (Wemos D1 mini)
+## JTAG attempt (Wemos D1 mini) — failed
 
-Two-step process:
+Actual wiring used (silkscreen labels of LOLIN D1 mini V4.0.0):
 
-**Step 1 — find pins** (`uart/jtagenum/JTAGenum.ino`):
-Flash to Wemos, connect D1/D2/D5/D6/D7 to the JTAG header on the Humax board,
-open Serial @ 115200. Send `i` for IDCODE scan; expected BCM7405 response has bit 0 = 1.
-Send `s` for full pattern scan. Note the reported TCK/TMS/TDI/TDO mapping.
+| Humax | Wemos | Signal |
+|---|---|---|
+| 9 | **14 SCK** | TCK |
+| 3 | **12 MISO** | TDI |
+| 7 | **13 MOSI** | TMS |
+| 5 | **4 SDA** | TDO |
+| 1 | **16** | TRST |
+| 2/4/6/8/10 | **GND** | GND |
 
-**Step 2 — connect with OpenOCD** (`uart/esp8266_remote_bitbang/esp8266_remote_bitbang.ino`):
-Fill in WiFi credentials and the pin mapping found in step 1. Flash. Run:
+**12 и 14 — не GND** на этой колодке. Землю брать только с 2/4/6/8/10.
+
+Software path:
+
+- `uart/jtagenum/JTAGenum/JTAGenum.ino` — сканирование пинов (Serial 115200).
+- `uart/esp8266_serial_bitbang/esp8266_serial_bitbang.ino` — serial remote_bitbang
+  прошивка (без WiFi, UART 500000).
+- `uart/serial_bridge.py` — мост USB serial ↔ TCP `127.0.0.1:3335`.
+- `uart/esp8266_remote_bitbang/esp8266_remote_bitbang.ino` — WiFi-вариант, не
+  использовался в финале.
+- `uart/probe_meter/probe_meter.ino` — Wemos-прозвонка/вольтметр (4 SDA/12 MISO/A0).
+
+Run:
 
 ```bash
+python3 uart/serial_bridge.py /dev/cu.usbserial-10
 openocd -f uart/openocd_bcm7405.cfg
-```
-
-```
 telnet localhost 4444
 > halt
 > mdw 0xBFC00000 4
-> load_image hdf_work/vmlinux_v20.elf
-> resume 0x802AC000
+> load_image hdf_work/cfe_hdfoxt2.elf
+> resume 0x87000840
 ```
 
-⚠️ Do **not** connect VCC from the Wemos to the board; use the STB's own 3.3 V.
-Do not assume pin 1 is TCK/TMS — check it with JTAGenum first.
+⚠️ **Никакого 3.3 В напрямую на pin 1.** Wemos уходил в защиту; TRST/TDO
+подтягивать только через 10к или внутренний pull-up (JTAGenum: `r` → Pullups ON).
+Верхняя 2x7 может быть JTAG **Entropic EN10024**, а не BCM7405; на нижней стороне
+есть незапаянная 2x7 — следующий кандидат.
 
 ---
 
@@ -263,6 +300,7 @@ docs/
   MICOM_PROTOCOL_AND_WDN4OAK.md — MICOM UART3, serial protocol, LZRW1
   EXHAUSTIVE_ASSET_AUDIT.md  — inventory of every project asset
   claude-loader/analys.md    — latest loader analysis: blob-gate, boot gates, ROP notes
+  deepseek_research.md       — CFE/loader/JTAG research; final JTAG findings
 
 build/
   build_firmware_v20.sh      — current kernel build (Docker)
@@ -276,8 +314,12 @@ tools/
   humidify-ubuntu-1.0.4      — official HDF tool (run in Docker)
 
 uart/
-  jtagenum/                  — JTAGenum.ino for Wemos D1 mini — finds JTAG pin mapping
-  esp8266_remote_bitbang/    — OpenOCD remote_bitbang bridge firmware for Wemos
+  jtagenum/JTAGenum/         — JTAGenum for Wemos D1 mini — finds JTAG pin mapping
+  esp8266_serial_bitbang/    — serial remote_bitbang firmware (final path, 500000 baud)
+  serial_bridge.py           — USB serial ↔ TCP localhost:3335 bridge for OpenOCD
+  probe_meter/               — Wemos continuity tester / A0 voltmeter
+  pin_test/                  — simple pin tester for Wemos
+  esp8266_remote_bitbang/    — WiFi remote_bitbang variant (not used in final)
   openocd_bcm7405.cfg        — OpenOCD config for BCM7405 MIPS EJTAG
 
 firmwares/
@@ -294,6 +336,7 @@ hdf_work/
   loader_full.asm            — annotated Y4.11 full disassembly
   vmlinux_v20.elf            — JTAG-loadable kernel (entry 0x802AC000)
   custom_kernel_v20.bin      — raw stub+kernel image (flash path)
+  cfe_hdfoxt2.elf            — HD FOX T2 CFE wrapped as ELF (entry 0x87000840)
   foxt2_rootfs/              — extracted HD FOX T2 rootfs
 
 kernel/stblinux-2.6.18-7.1/  — kernel source tree with our patches
@@ -359,6 +402,13 @@ The HD FOX T2 / HDR FOX T2 hummy.tv custom firmware (`nosettop` kernel cmdline a
 
 ## Known Issues / TODO
 
+- **JTAG TAP/IDCODE never found.** Top 2x7 header may belong to the Entropic
+  EN10024, not the BCM7405; bottom unpopulated 2x7 is unverified. Needs a
+  multimeter/continuity check.
+- **Never hard-tie 3.3 V to a Humax header pin.** Wemos went into protection on
+  pin 1; suspected short/wrong pin. Use 10k or the Wemos internal pull-up.
+- No multimeter / 10k resistors were available, so TDO/TRST pull-ups and the
+  pin 5 → SoC continuity were not verified.
 - `build/build_firmware_v20.sh` still packs the raw image with `stub_v14.S` (no WDT
   kill) and prints a stale "Builder v8" banner. Harmless for the JTAG/ELF path; switch
   to `stub_v15.S` (or rebuild) if a flashable v20 image is ever needed.
