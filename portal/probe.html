@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>probe</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<script>
+// Probe page: reports back what OIPF/HbbTV objects are available on this device.
+// Load via portal server, check /probe_results in logs.
+
+var BASE = location.protocol + '//' + location.hostname + ':5080';
+var results = {};
+results['ua'] = navigator.userAgent;
+results['ts'] = new Date().toISOString();
+
+function log(k, v) {
+    results[k] = v;
+}
+
+function send() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', BASE + '/api/report', false);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    try { xhr.send(JSON.stringify(results)); } catch(e) {}
+}
+
+// ---- helper: create embedded object ----
+function mkobj(mime) {
+    var o = document.createElement('object');
+    o.setAttribute('type', mime);
+    o.setAttribute('style', 'width:0;height:0');
+    document.body.appendChild(o);
+    return o;
+}
+
+// ---- 1. upgrade plugin ----
+try {
+    var up = mkobj('valups/upgrade');
+    if (up) {
+        var st = up.getState ? up.getState() : 'no_getState';
+        log('upgrade.getState', st);
+        // Return value of upgrade() with our server URL
+        var r1 = up.upgrade ? up.upgrade(location.hostname + ':5080/probe.hdf', 0) : 'no_fn';
+        log('upgrade.upgrade(0)', r1);
+        var r2 = up.upgrade ? up.upgrade(location.hostname + ':5080/probe.hdf', 1) : 'no_fn';
+        log('upgrade.upgrade(1)', r2);
+    }
+} catch(e) { log('upgrade.err', e.toString()); }
+
+// ---- 2. oipfConfiguration ----
+try {
+    var cfg = mkobj('application/oipfConfiguration');
+    if (cfg) {
+        log('cfg.type', typeof cfg);
+        // Try standard OIPF config keys
+        var keys = ['preferredUILanguage','country','timezone','countryId',
+                    'volumeLevel','audioType','subtitleEnabled','subtitleLanguage',
+                    'networkConfig','networkType'];
+        for (var i = 0; i < keys.length; i++) {
+            try {
+                var v = cfg.getText ? cfg.getText(keys[i]) : 'no_getText';
+                log('cfg.' + keys[i], v);
+            } catch(e) { log('cfg.' + keys[i], 'err:' + e.toString()); }
+        }
+        // Try setParentalControlPIN — just probe if it exists
+        log('cfg.setParentalControlPIN_exists', typeof cfg.setParentalControlPIN);
+        log('cfg.unlockWithParentalControlPIN_exists', typeof cfg.unlockWithParentalControlPIN);
+        log('cfg.setText_exists', typeof cfg.setText);
+    }
+} catch(e) { log('cfg.err', e.toString()); }
+
+// ---- 3. oipfCapabilities ----
+try {
+    var cap = mkobj('application/oipfCapabilities');
+    if (cap) {
+        log('cap.xmlCapabilities', cap.xmlCapabilities || 'undef');
+        log('cap.hasCapability_exists', typeof cap.hasCapability);
+    }
+} catch(e) { log('cap.err', e.toString()); }
+
+// ---- 4. oipfApplicationManager ----
+try {
+    var am = mkobj('application/oipfApplicationManager');
+    if (am) {
+        var oa = am.getOwnerApplication ? am.getOwnerApplication(document) : 'no_fn';
+        log('am.ownerApp', oa ? 'ok' : 'null');
+        if (oa) {
+            log('am.ownerApp.url', oa.url || 'undef');
+            log('am.ownerApp.visible', oa.visible);
+            log('am.createApplication_exists', typeof am.createApplication);
+        }
+    }
+} catch(e) { log('am.err', e.toString()); }
+
+// ---- 5. oipfDownloadTrigger ----
+try {
+    var dt = mkobj('application/oipfDownloadTrigger');
+    if (dt) {
+        log('dt.registerDownloadURL_exists', typeof dt.registerDownloadURL);
+        // Try to register a download to our server
+        try {
+            var did = dt.registerDownloadURL ?
+                dt.registerDownloadURL(BASE + '/probe.dl', 'video/mp2t', new Date().toISOString())
+                : 'no_fn';
+            log('dt.registerDownloadURL_result', did);
+        } catch(e2) { log('dt.registerDownloadURL_err', e2.toString()); }
+    }
+} catch(e) { log('dt.err', e.toString()); }
+
+// ---- 6. oipfDownloadManager ----
+try {
+    var dm = mkobj('application/oipfDownloadManager');
+    if (dm) {
+        var dls = dm.getDownloads ? dm.getDownloads() : 'no_fn';
+        log('dm.getDownloads_len', dls && dls.length !== undefined ? dls.length : String(dls));
+    }
+} catch(e) { log('dm.err', e.toString()); }
+
+// ---- 7. oipfParentalControlManager ----
+try {
+    var pcm = mkobj('application/oipfParentalControlManager');
+    if (pcm) {
+        log('pcm.setParentalControlPIN_exists', typeof pcm.setParentalControlPIN);
+        log('pcm.verifyParentalControlPIN_exists', typeof pcm.verifyParentalControlPIN);
+        // Try verify with '0000' just to see if it works
+        try {
+            var vr = pcm.verifyParentalControlPIN ? pcm.verifyParentalControlPIN('0000') : 'no_fn';
+            log('pcm.verify_0000', vr);
+        } catch(e2) { log('pcm.verify_err', e2.toString()); }
+    }
+} catch(e) { log('pcm.err', e.toString()); }
+
+// ---- 8. sysinfo ----
+try {
+    var si = mkobj('application/oipfCapabilities');
+    // Also try Humax-specific MIME types
+    var hmimes = [
+        'application/hmx-sysinfo',
+        'application/hmxsysinfo',
+        'valups/sysinfo',
+        'application/oipfGatewayInfo',
+        'application/oipfSearchManager'
+    ];
+    for (var j = 0; j < hmimes.length; j++) {
+        try {
+            var o2 = mkobj(hmimes[j]);
+            log('mime_' + hmimes[j].replace(/\//g,'_'), o2 ? 'created' : 'null');
+        } catch(e) { log('mime_' + hmimes[j].replace(/\//g,'_'), 'err'); }
+    }
+} catch(e) {}
+
+// ---- 9. Video/broadcast ----
+try {
+    var vb = mkobj('video/broadcast');
+    if (vb) {
+        log('vb.currentChannel', vb.currentChannel ?
+            (vb.currentChannel.name || 'ok') : 'null');
+        log('vb.getChannelConfig_exists', typeof vb.getChannelConfig);
+        log('vb.recordNow_exists', typeof vb.recordNow);
+    }
+} catch(e) { log('vb.err', e.toString()); }
+
+// ---- 10. overflow probe ----
+try {
+    var up2 = document.querySelector('object[type="valups/upgrade"]');
+    if (up2 && up2.upgrade) {
+        // 512 bytes — should be fine
+        var r_512 = up2.upgrade(new Array(512).join('A') + '/x.hdf', 1);
+        log('upgrade.url512', r_512);
+        // 4096 bytes
+        try {
+            var r_4k = up2.upgrade(new Array(4096).join('A') + '/x.hdf', 1);
+            log('upgrade.url4096', r_4k);
+        } catch(e) { log('upgrade.url4096', 'exception:' + e.toString()); }
+    }
+} catch(e) { log('overflow.err', e.toString()); }
+
+// ---- send results ----
+send();
+document.write('<pre>' + JSON.stringify(results, null, 2) + '</pre>');
+</script>
+</body>
+</html>

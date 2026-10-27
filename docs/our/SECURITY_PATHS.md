@@ -57,8 +57,31 @@ bdi-стиль; сообщество Dreambox (DM800/8000 = BCM7401/7400) име
   проверки (JTAG/глитч), (в) получении подписанного файла у вендора
   (письмо — docs/LETTER_HUMAX.md).
 
+## Актуальный статус (27.10.2026)
+
+Устройство **БРИКНУТО** (25.10.2026) на 96% при прошивке Y4.11 → плохой NAND-блок → частичный loader → не грузится.
+
+**Основной путь восстановления: JTAG (путь 2)**
+- ESP8266 Wemos D1 mini, прошить `uart/esp8266_serial_bitbang/esp8266_serial_bitbang.ino`
+- `python3 uart/serial_bridge.py /dev/cu.usbserial-10` → OpenOCD на localhost:3335
+- `openocd -f uart/openocd_bcm7405.cfg`
+- Ожидать валидный IDCODE (не 0x00000000, не 0xFFFFFFFF)
+- `load_image hdf_work/vmlinux_v20.elf`; `resume 0x802AC000` → Linux в RAM → kexec
+
+**NB**: WiFi-скетч `esp8266_remote_bitbang.ino` сломан (старый протокол 'c'..'f'). Использовать ТОЛЬКО serial-скетч.
+
+## Путь через портал (параллельно, когда будет рабочее устройство)
+
+Браузер ANT Galio 3.1.1 (Opera+HbbTV) открывает широкую атак-поверхность:
+- **RCE-кандидат №1**: `upgrade("A"*4096, 1)` — buffer overflow в `libplugin_upgrade.so` (strtok на URL без проверки длины).
+- **Конфиг-запись**: `oipfConfiguration.setText(key, val)` — пишет в config store; ключи нужно прощупать на живом устройстве.
+- **Скачивание на устройство**: `oipfDownloadTrigger.registerDownloadURL(url,...)`.
+- Probe-страница `portal/probe.html` — тестирует все объекты за один запуск.
+
+Детальная карта объектов: `portal/FINDINGS.md §3.2`.
+
 ## Порядок действий при возвращении к железу
-1. `listen_stb.command` + power-cycle (1 минута).
-2. Впаивать гребёнку в JP650, CP2102, снять полный лог включения (UART_GUIDE).
-3. По логу выбрать: env/TFTP (1) или готовить EJTAG (2).
-4. Параллельно: письма Humax/РТК (шаблоны готовы).
+1. JTAG: подключить Wemos, `serial_bridge.py`, OpenOCD, проверить IDCODE.
+2. При валидном IDCODE: `load_image vmlinux_v20.elf` → `resume` → Linux в RAM.
+3. Открыть portal-сессию, запустить `portal/probe.html`.
+4. После восстановления нормальной загрузки — тест overflow probe и oipfConfiguration.setText.

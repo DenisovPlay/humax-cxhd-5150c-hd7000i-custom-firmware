@@ -25,6 +25,9 @@
 - Текущие PIDs: dns 6854, portal 6855 (root).
 
 ## 3. Что умеет браузер приставки (ANT Galio)
+
+**ANT Galio = Opera (Presto) + libopera_hbbtv.so.** Rootfs 5150C идентичен FOXSAT-HDR (md5: `ad01e76f727057279f294840e7574c1b`) — Humax использовал один rootfs blob для обоих устройств, отличается только внешний HDF-контейнер (SysID).
+
 - `XMLHttpRequest` на `file://` работает: читает файлы по пути (статусы 200/404),
   Выводы и ограничения:
   - читает ВСЁ содержимое, но максимум **1 МБ** и всегда с нулевого офсета; заголовок `Range` игнорируется;
@@ -32,13 +35,40 @@
   - мусорные пути → 1703-байтовая HTML-страница «network error» со статусом 404;
   - `$PATH`/директории листинг не отдают; запись куда-либо (PUT/POST на file://) — 404;
   - блочные девайсы: `/dev/mtdblock0` len=0, `/dev/mtdblock1` — 404/HTML, `mtdblock2` — 1 байт «01», `mtdblock4/5` — len=0, `mtdblock6` — 1-й МБ весь `0xFF/0xFD`, далее «думает» (медленно, вероятно NAND);
-- Плагины (объекты `<object type=...>`):
+
+### 3.1. Плагины — подтверждено на живом устройстве (до брика)
   - `valups/system`: modelName=CXHD-5150C, systemId, softwareVersion, macAddress, screenLanguage=rus, usedNetInterface и т.д.
   - `valups/upgrade`: константы `ERROR_NONE=0`, `ERROR_FAIL=255`, `ERROR_RECORDING_NONE=240`, `ERROR_RECORDING_NOW=241`, `ERROR_RECORDING_READY=242`; методы
     **`upgrade`** и **`forcedupgrade`**, оба `fn/2`, оба native (`function upgrade() { [native code] }`);
   - `application/oipfApplicationManager`: setApplicationType, isBroadcastRelated, selectService, gc, getOwnerApplication, getChildApplications (последняя кинула «convert null … ch to Object» при вызове с document);
   - `application/oipfConfiguration`: `configuration` (getText/setText, родительский контроль, pvrPolicy, preferredAudioLanguage, countryId, regionId), `localSystem` (setScreenSize, deviceID=null, networkInterfaces); `keyset`;
   - `application/oipfObjectFactory`: свойства form/archive/align/code/border читаются («null»/«»), создать приложение/медиа не вышло (методы createApplication/… не найдены);
+
+### 3.2. Плагины — из libooif.so (rootfs, не тестировались на живом устройстве)
+Все ниже зарегистрированы в `libooif.so` и должны быть доступны через `<object type="...">`:
+
+| MIME тип | Ключевые методы | Интерес для атаки |
+|---|---|---|
+| `application/oipfConfiguration` | `getText(key)`, `setText(key,val)`, `setParentalControlPIN(pin)`, `unlockWithParentalControlPIN(pin)` | **ВЫСОКИЙ** — пишет в конфиг-стор, ключи неизвестны |
+| `application/oipfDownloadTrigger` | `registerDownloadURL(url, contentType, start)` | **ВЫСОКИЙ** — инициирует скачивание с нашего сервера |
+| `application/oipfRecordingScheduler` | `record(ch,time,dur,name)`, `recordAt(...)` | средний |
+| `application/oipfParentalControlManager` | `setParentalControlPIN(pin)`, `verifyParentalControlPIN(pin)` | средний — сброс PIN |
+| `application/oipfDownloadManager` | `getDownloads()`, pause/resume/remove | низкий |
+| `application/oipfCapabilities` | `xmlCapabilities`, `hasCapability()` | info |
+| `application/oipfDrmAgent` | DRM | — |
+| `application/oipfGatewayInfo` | gateway info | info |
+| `application/oipfSearchManager` | поиск | — |
+| `video/broadcast` | `currentChannel`, `recordNow(dur)`, `getChannelConfig()` | средний |
+
+### 3.3. Атакующий потенциал из браузера (до получения shell)
+1. **`upgrade("A"*4096, 1)`** — buffer overflow в URL-парсере `libplugin_upgrade.so`; `strtok('/')` на буфере фиксированного размера. Самый прямой путь к RCE.
+2. **`oipfConfiguration.setText(key, val)`** — ключи конфиг-стора неизвестны; нужно прощупать — возможна запись в config.db → выполнение при старте.
+3. **`oipfDownloadTrigger.registerDownloadURL(url,...)`** — скачивает с нашего сервера, путь сохранения контролирует устройство (по стандарту нет `destinationPath`).
+4. **`oipfParentalControlManager.setParentalControlPIN("0000")`** — сброс PIN, реальный ущерб.
+
+### 3.4. Probe-страница
+`portal/probe.html` — при загрузке через портал тестирует все объекты из 3.1/3.2, возвращает результат в `/api/report`. Запустить когда устройство поднято.
+
 - Пачка Image()-маяков (>~100 за раз) ПОТЕРИ: движок отбрасывает их. Пишите маяки по одному с задержкой ≥250–300 мс.
 
 ## 4. ГЛАВНОЕ: как ведёт себя нативное обновление (valups/upgrade)
@@ -70,7 +100,14 @@ u.upgrade("192.168.1.18:5080/fw.hdf", 1);  // host-token = "192.168.1.18:5080"
   - после 0x100-байтного блока (вероятно сигнатура) + 2 байта — чексам-блок `0x00800014`;
   - 32-байтовый фан-хедер для большого файла: uncompressed `0x0012ff3f`, compressed `0x00040036`, `0`, `0xffffffff`, CRC `0x001a382c`, ключ `0x7fc8b181`, magic `0x89017ff6`, `0`;
   - payload сжат/шифрован — zlib/raw/bzip2/lzma не дали; формат не определён.
-- Утилита `humidify` (копия в `humax-gpl/humidify-ubuntu-1.0.4`) умеет list/extract — запускается в LimaVM `humax` (`limactl start humax`; каталог /Users — read-only, работать в /tmp, копировать `limactl copy`).
+- Утилита `humidify` (копия в `tools/humidify-ubuntu-1.0.4`, ELF x86-64 статически слинкован) — list/extract:
+  ```
+  colima start --arch x86_64 --vm-type vz --cpu 2 --memory 2
+  docker run --rm --platform linux/amd64 -v /Users/andrey/Desktop/humax:/humax \
+    -w /humax/hdf_work/out ubuntu:22.04 \
+    /humax/tools/humidify-ubuntu-1.0.4 -x /humax/firmwares/genuine/onlime_early_cxhd_5150c.hdf
+  ```
+  Колима останавливать `colima stop` после работы.
 
 ## 7. Диагностика/логи
 - `humax-gpl/events.jsonl` — все запросы/hits/репорты (с `id`).
@@ -87,11 +124,23 @@ u.upgrade("192.168.1.18:5080/fw.hdf", 1);  // host-token = "192.168.1.18:5080"
 - macOS AirPlay занимает :5000 (не использовать).
 - Если рестарт стека: не бить старе процессы пока.listeners живы (см. раздел 2).
 
-## 9. Статус проекта (23.10.2026 23:10 MSK)
-- Текущая панель: **v10**; в ней 5 вызовов `u.upgrade("192.168.1.18:5080/fw.hdf",1)` (по 1 за раз), но после 1-го вызова крепится нативный экран — фактически на перезапуск портала успевает ОДИН вызов.
-- Сегодняшний результат: **сделан полноценный апдейт-цикл**: резолв через наш DNS (wild), открытие нативного UI, ошибка **ER-05** (не смог связаться с сервером), пристроил LED «HUER», приставка вернулась в портал живой и здоровой.
-- На моём TODO: попробовать открыть шлюз (`touch logs/FW_GATE_OPEN`) и перегрузить портал — тогда апдейт-клиент сможет ЗАКАЧАТЬ файл `panel/fw.hdf`; требуются проверки CRC/HDF перед этим; также «порты глушины» (tcpdump на входящие SYN от 192.168.1.21 → кроме наших 4), чтобы понять, куда нативный клиент коннектится.
-- Разобраться с HDF-форматом (payload) — нужно для гарантии прошивки; без этого не открывать шлюз на много байт.
+## 9. Статус проекта
+
+### 23.10.2026 23:10 MSK (последнее рабочее состояние)
+- Панель v10: `upgrade("192.168.1.18:5080/fw.hdf",1)` → 240 (ERROR_RECORDING_NONE), нативный UI поднялся, ER-05, вернулся в портал живым.
+- TCP-соединение нативного апдейтера до мака не доходило — OTA daemon, вероятно, использует **TFTP (UDP:69)**. tcpdump_syn.pcap подтверждает: SYN только на :80 и :5080 от браузера, никаких SYN на другие порты от апдейтера.
+
+### 25.10.2026 — БРИК
+- Устройство брикнулось на 96% при попытке прошить Y4.11 HDF → bad NAND block → partial loader → не грузится.
+- Путь восстановления: **JTAG** (ESP8266 serial bitbang → OpenOCD → `load_image vmlinux_v20.elf` → `resume 0x802AC000` → Linux в RAM → kexec).
+
+### 27.10.2026 — Анализ прошивки (текущая сессия)
+- rootfs 5150C = FOXSAT-HDR rootfs (идентичный blob, md5 `ad01e76f727057279f294840e7574c1b`).
+- Полная карта OIPF-объектов из libooif.so — см. §3.2.
+- P12-сертификаты в прошивке (`htvdev_portal_ccert_2k_20101106.p12`, `hdrfoxt2_*.p12`) — **пустой пароль**, шифрование RC2-40-CBC. Приватный ключ `htvdev.humaxtvportal.com` (клиентский cert) извлечён:
+  `openssl pkcs12 -legacy -passin pass: -nocerts -nodes -in htvdev_portal_ccert_2k_20101106.p12`
+  (root CA private key в прошивке отсутствует — только pub cert).
+- Probe-страница: `portal/probe.html` — запустить сразу после восстановления через JTAG.
 
 ## 10. Правила игры
 - Пользователь (Andrey) терпеливый, но не любит много «спящих» снов и длинных непонятных пауз — пиши кратко и по делу, пользователь сам перезагружает портал на приставке при запросе.
