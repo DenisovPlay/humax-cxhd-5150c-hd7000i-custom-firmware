@@ -12,6 +12,8 @@ set-top box. Goal: obtain root Linux shell access on operator-locked hardware.
 > 10к и проверки, та ли это колодка (верхняя 2x7 возле Entropic EN10024 или
 > незапаянная 2x7 на нижней стороне), продолжать смысла нет.
 > Ничего не шьём. Всё, что наработано, остаётся в репозитории.
+>
+> Возможно, будет продолжение с HD7000i
 
 **Status (2026-10-27):** stopped. Device is still bricked; no root, no TAP.
 The Wemos D1 mini is flashed, the serial remote_bitbang bridge works, but the
