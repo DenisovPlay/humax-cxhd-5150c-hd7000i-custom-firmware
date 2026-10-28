@@ -1,6 +1,21 @@
 # Letter to HUMAX UK support — information request for CXHD-5150C
 
-**To:** uksupport@humax-digital.co.uk
+## Статус переписки
+
+| Дата | Событие |
+|---|---|
+| 25.10.2026 04:40 | Письмо отправлено на `uksupport@humaxonline.co.uk` |
+| 26.10.2026 16:46 | Ответ от Pauline (Humax UK): не отказали, перенаправили на `mobility@humaxdigital.com` |
+| 28.10.2026 | Письмо переотправлено на `mobility@humaxdigital.com` |
+
+**Вывод:** Humax UK не отказали и не проигнорировали — переслали на правильный отдел (mobility = операторские/встраиваемые устройства). Это позитивно.
+
+---
+
+## Исходное письмо (отправлено 25.10.2026)
+
+**To:** uksupport@humaxonline.co.uk
+**From:** andreydenisov25@gmail.com
 **Subject:** Information request — Humax CXHD-5150C cable receiver (OnLime/Rostelecom, Russia)
 
 ---
@@ -52,7 +67,30 @@ worth saving fourteen years later.
 
 Kind regards,
 
-[NAME]
+Andrew
 Hardware preservation enthusiast
-[CITY], Russia
-[e-mail]
+Russia
+andreydenisov25@gmail.com
+
+---
+
+## Ответ Humax UK (26.10.2026 16:46)
+
+**From:** Humax Customer Support `<uksupport@humaxonline.co.uk>`  
+**Agent:** Pauline
+
+> Hi Andrew,
+>
+> Thank you for contacting Humax.
+>
+> For further assistance regarding your inquiry, please reach out to **mobility@humaxdigital.com** for more information.
+>
+> Best Regards,
+> Pauline
+> Humax Customer Support
+
+---
+
+## Следующий шаг
+
+Переслать (или написать заново) на **mobility@humaxdigital.com** — это отдел операторских/встраиваемых устройств Humax Digital (корейский хэдквотер), они отвечают за operator-specific продукты типа CXHD.
