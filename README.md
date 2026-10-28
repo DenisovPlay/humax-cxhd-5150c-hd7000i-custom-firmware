@@ -42,6 +42,10 @@ footprint on the bottom side is the next candidate. Without a multimeter and
   Если кто-то продолжит: проверить колодку, поставить 10к на TDO/TRST, проверить
   цепь pin 5 → SoC, и только потом паять.
 
+![паяемся](board-images/payayemsya.jpg)
+
+*паяемся*
+
 Подробный разбор — в [docs/deepseek_research.md](docs/deepseek_research.md).
 
 Старые предупреждения в силе: чужие прошивки из репо не шить, ключей в них нет, без

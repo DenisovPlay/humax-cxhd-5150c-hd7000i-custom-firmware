@@ -67,7 +67,7 @@
  byte       pins[] = {  D2 ,  D3 ,  D4 ,  D5 ,  D6 ,  D7 ,  D8 ,  D9 ,  D10 ,  D11 ,  D12  };
  String pinnames[] = { "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"," D10", "D11", "D12" };
 #elif defined(ESP8266) || defined(ARDUINO_ARCH_ESP8266) // Wemos D1 mini (ESP8266)
- // Avoid boot-strap pins for stable startup: D3(GPIO0), D4(GPIO2), D8(GPIO15)
+ // Humax JTAG: D1=TRST, D2=TDO, D5=TCK, D6=TDI, D7=TMS
  byte       pins[] = {  D1 ,  D2 ,  D5 ,  D6 ,  D7  };
  String pinnames[] = { "D1", "D2", "D5", "D6", "D7" };
 #else                      // DEFAULT
@@ -138,8 +138,8 @@ static char pattern[PATTERN_LEN] = "0110011101001101101000010111001001";
 #define TRUE                     255
 #define FALSE                    0
 boolean VERBOSE                  = FALSE;
-boolean DELAY                    = FALSE;
-long    DELAYUS                  = 50;
+boolean DELAY                    = TRUE;
+long    DELAYUS                  = 100;
 boolean JTAG_PULLUP              = TRUE;
 
 
@@ -178,8 +178,6 @@ byte * jtag_ptr_from_idx(const int idx){
 
 void setup(void)
 {
-  pinMode(16, INPUT_PULLUP);
-
 #ifdef HALFCLOCK
         // for 3.3v boards. Cuts clock in half
         // normally only on avr based arduino & teensy hardware
@@ -521,6 +519,12 @@ static void scan_idcode()
             }
             init_pins(pins[tck], pins[tms], pins[tdi], pins[ntrst]);
 
+            /* pulse nTRST low then high to force TAP reset */
+            digitalWrite(pins[ntrst], LOW);
+            delayMicroseconds(500);
+            digitalWrite(pins[ntrst], HIGH);
+            delayMicroseconds(500);
+
             /* we hope that IDCODE is the default DR after reset */
             tap_state(TAP_RESET, pins[tck], pins[tms]);
             tap_state(TAP_SHIFTDR, pins[tck], pins[tms]);
@@ -555,6 +559,17 @@ static void scan_idcode()
                 Serial.print("  0x");
                 Serial.println(idcodes[j],HEX);
               }
+            }
+            else if (idcodes[0] == 0xffffffff) {
+              Serial.print("all-ones");
+              print_pins(tck,tms,tdo,tdi,ntrst);
+              Serial.println();
+            }
+            else if (idcodes[0] != 0x00000000) {
+              Serial.print("raw:0x");
+              Serial.print(idcodes[0],HEX);
+              print_pins(tck,tms,tdo,tdi,ntrst);
+              Serial.println();
             } /* if (i > 0) */
           } /* for(tdo=0; ... ) */
         } /* for(tdi=0; ...) */
@@ -952,6 +967,310 @@ void loop()
     {
       if (JTAG_PULLUP == FALSE) {JTAG_PULLUP = TRUE;} else {JTAG_PULLUP = FALSE;}
       Serial.println(JTAG_PULLUP ? "Pullups ON" : "Pullups OFF");
+    }
+    else if(strcmp(command, "gpio read") == 0                         || strcmp(command, "g") == 0)
+    {
+      Serial.println("Pin states (all as INPUT):");
+      for(int pin=0;pin<pinslen;pin++) {
+        pinMode(pins[pin], INPUT);
+        digitalWrite(pins[pin], LOW); // no pullup
+        delayMicroseconds(100);
+        Serial.print("  ");
+        Serial.print(pinnames[pin]);
+        Serial.print("=");
+        Serial.println(digitalRead(pins[pin]) ? "HIGH" : "LOW");
+      }
+      Serial.println("With pullup:");
+      for(int pin=0;pin<pinslen;pin++) {
+        pinMode(pins[pin], INPUT);
+        digitalWrite(pins[pin], HIGH); // pullup
+        delayMicroseconds(100);
+        Serial.print("  ");
+        Serial.print(pinnames[pin]);
+        Serial.print("=");
+        Serial.println(digitalRead(pins[pin]) ? "HIGH" : "LOW");
+      }
+      int a0 = analogRead(A0);
+      Serial.print("  A0(TDO) raw=");
+      Serial.print(a0);
+      Serial.print(" ~");
+      Serial.print((a0 * 3200) / 1023);
+      Serial.println("mV");
+    }
+    else if(strcmp(command, "direct test") == 0                       || strcmp(command, "t") == 0)
+    {
+      // Direct test with known pins: D1=TRST D5=TCK D7=TMS D6=TDI
+      // TDO on A0 (analog) — BCM7213 JTAG is 1.8V, digitalRead can't see it
+      int p_trst = D1, p_tck = D5, p_tms = D7, p_tdi = D6;
+      const int TDO_THRESH = 300; // ~0.94V — separates 0V (LOW) from 1.4V (HIGH)
+      #define READ_TDO() (analogRead(A0) > TDO_THRESH ? 1 : 0)
+
+      // Setup outputs
+      pinMode(p_tck, OUTPUT); digitalWrite(p_tck, LOW);
+      pinMode(p_tms, OUTPUT); digitalWrite(p_tms, LOW);
+      pinMode(p_tdi, OUTPUT); digitalWrite(p_tdi, LOW);
+      pinMode(p_trst, OUTPUT);
+      // A0 is analog-only, no pinMode needed
+
+      // Hard TRST pulse: drive LOW 50ms, then HIGH 50ms
+      Serial.print("TRST pulse...");
+      digitalWrite(p_trst, LOW);
+      delay(50);
+      // Check: can we actually read TRST back?
+      pinMode(p_trst, INPUT);
+      delayMicroseconds(10);
+      Serial.print(" TRST(float)=");
+      Serial.print(digitalRead(p_trst) ? "H" : "L");
+      pinMode(p_trst, OUTPUT);
+      digitalWrite(p_trst, HIGH);
+      delay(50);
+      pinMode(p_trst, INPUT);
+      delayMicroseconds(10);
+      Serial.print(" TRST(driven)=");
+      Serial.println(digitalRead(p_trst) ? "H" : "L");
+      pinMode(p_trst, OUTPUT);
+      digitalWrite(p_trst, HIGH);
+
+      // Check TDO now (analog)
+      int raw_tdo = analogRead(A0);
+      Serial.print("TDO after TRST pulse: raw=");
+      Serial.print(raw_tdo);
+      Serial.print(" (~");
+      Serial.print((raw_tdo * 3200) / 1023);
+      Serial.print("mV) => ");
+      Serial.println(raw_tdo > TDO_THRESH ? "HIGH" : "LOW");
+
+      // TAP reset via TMS (5 clocks TMS=1)
+      Serial.print("TAP reset via TMS... ");
+      for(int i=0; i<5; i++) {
+        digitalWrite(p_tms, HIGH);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+      raw_tdo = analogRead(A0);
+      Serial.print("TDO raw=");
+      Serial.print(raw_tdo);
+      Serial.println(raw_tdo > TDO_THRESH ? " HIGH" : " LOW");
+
+      // Navigate to Shift-DR: TMS sequence 0,1,0,0 from Test-Logic-Reset
+      // Reset->Idle(0) Idle->SelectDR(1) SelectDR->CaptureDR(0) CaptureDR->ShiftDR(0)
+      int tms_seq[] = {0, 1, 0, 0};
+      Serial.print("Shift-DR... ");
+      for(int i=0; i<4; i++) {
+        digitalWrite(p_tms, tms_seq[i]);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+
+      // Read 32 bits from TDO (IDCODE or BYPASS)
+      uint32_t idcode = 0;
+      Serial.print("Reading 32 bits: ");
+      for(int j=0; j<32; j++) {
+        digitalWrite(p_tdi, LOW);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        int bit = READ_TDO();
+        Serial.print(bit);
+        if(bit) idcode |= ((uint32_t)1) << j;
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+      Serial.println();
+      Serial.print("IDCODE: 0x");
+      Serial.println(idcode, HEX);
+
+      // Read 32 more bits
+      uint32_t idcode2 = 0;
+      for(int j=0; j<32; j++) {
+        digitalWrite(p_tdi, LOW);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        int bit = READ_TDO();
+        if(bit) idcode2 |= ((uint32_t)1) << j;
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+      Serial.print("Next 32: 0x");
+      Serial.println(idcode2, HEX);
+
+      // BYPASS test: send 1s into TDI, check if they come out on TDO
+      // In BYPASS (1-bit register), TDI appears on TDO after 1 clock
+      Serial.print("BYPASS test (TDI=1): ");
+      for(int j=0; j<16; j++) {
+        digitalWrite(p_tdi, HIGH);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        Serial.print(READ_TDO());
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+      Serial.println();
+
+      // Now send alternating 1010... pattern
+      Serial.print("Alternating TDI:     ");
+      for(int j=0; j<16; j++) {
+        digitalWrite(p_tdi, j & 1);
+        delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck, LOW);
+        delayMicroseconds(DELAYUS);
+        Serial.print(READ_TDO());
+        digitalWrite(p_tck, HIGH);
+        delayMicroseconds(DELAYUS);
+      }
+      Serial.println();
+      #undef READ_TDO
+    }
+    else if(strcmp(command, "diag") == 0                              || strcmp(command, "j") == 0)
+    {
+      // Full JTAG diagnostic
+      // Pins: GPIO5=TRST, GPIO14=TCK, GPIO13=TMS, GPIO12=TDI, A0=TDO(analog)
+      // D2(GPIO4) = free, used here to try nSRST on pin 11 or 12
+      int p_trst = D1, p_tck = D5, p_tms = D7, p_tdi = D6;
+      int p_srst = D2; // free pin for nSRST experiment
+      const int TH = 300;
+
+      pinMode(p_tck, OUTPUT); digitalWrite(p_tck, LOW);
+      pinMode(p_tms, OUTPUT); digitalWrite(p_tms, HIGH);
+      pinMode(p_tdi, OUTPUT); digitalWrite(p_tdi, LOW);
+      pinMode(p_trst, OUTPUT); digitalWrite(p_trst, HIGH);
+
+      // === TEST 1: TDO wiggle test (50 clocks TMS=1, TRST=H) ===
+      Serial.println("=== TEST 1: TDO wiggle (50 clk, TMS=1, TRST=H) ===");
+      int mn=1024, mx=0;
+      long sum=0;
+      for(int i=0;i<50;i++){
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        int v=analogRead(A0); if(v<mn)mn=v; if(v>mx)mx=v; sum+=v;
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      Serial.print("  TDO min="); Serial.print(mn);
+      Serial.print(" max="); Serial.print(mx);
+      Serial.print(" avg="); Serial.println(sum/50);
+
+      // === TEST 2: TDO wiggle (50 clocks TMS=0) ===
+      Serial.println("=== TEST 2: TDO wiggle (50 clk, TMS=0) ===");
+      digitalWrite(p_tms, LOW);
+      mn=1024; mx=0; sum=0;
+      for(int i=0;i<50;i++){
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        int v=analogRead(A0); if(v<mn)mn=v; if(v>mx)mx=v; sum+=v;
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      Serial.print("  TDO min="); Serial.print(mn);
+      Serial.print(" max="); Serial.print(mx);
+      Serial.print(" avg="); Serial.println(sum/50);
+
+      // === TEST 3: TRST=LOW (TAP reset), read TDO ===
+      Serial.println("=== TEST 3: TRST=LOW (hold reset) ===");
+      digitalWrite(p_trst, LOW); delay(10);
+      Serial.print("  TDO raw="); Serial.println(analogRead(A0));
+
+      // === TEST 4: no TRST, only TMS reset -> IDCODE ===
+      Serial.println("=== TEST 4: TMS-only reset -> IDCODE ===");
+      pinMode(p_trst, INPUT); // float TRST, don't drive it
+      digitalWrite(p_tms, HIGH);
+      for(int i=0;i<10;i++){
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      // Shift-DR: TMS 0,1,0,0
+      int seq4[]={0,1,0,0};
+      for(int i=0;i<4;i++){
+        digitalWrite(p_tms,seq4[i]); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      uint32_t id4=0;
+      Serial.print("  bits: ");
+      for(int j=0;j<32;j++){
+        digitalWrite(p_tdi,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        int v=analogRead(A0); int b=v>TH?1:0;
+        Serial.print(b);
+        if(b) id4|=((uint32_t)1)<<j;
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      Serial.println();
+      Serial.print("  IDCODE=0x"); Serial.println(id4,HEX);
+      pinMode(p_trst, OUTPUT); digitalWrite(p_trst, HIGH);
+
+      // === TEST 5: nSRST via D2 -> JTAG pin 11 ===
+      // User: connect D2 (GPIO4) to JTAG pin 11
+      Serial.println("=== TEST 5: nSRST pulse via D2 (connect D2->JTAG pin 11) ===");
+      pinMode(p_srst, OUTPUT);
+      digitalWrite(p_srst, LOW); delay(100);
+      digitalWrite(p_srst, HIGH); delay(100);
+      // now try IDCODE with TRST=H
+      digitalWrite(p_tms, HIGH);
+      for(int i=0;i<5;i++){
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      int seq5[]={0,1,0,0};
+      for(int i=0;i<4;i++){
+        digitalWrite(p_tms,seq5[i]); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      uint32_t id5=0;
+      Serial.print("  bits: ");
+      for(int j=0;j<32;j++){
+        digitalWrite(p_tdi,LOW); delayMicroseconds(DELAYUS);
+        digitalWrite(p_tck,LOW); delayMicroseconds(DELAYUS);
+        int v=analogRead(A0); int b=v>TH?1:0;
+        Serial.print(b);
+        if(b) id5|=((uint32_t)1)<<j;
+        digitalWrite(p_tck,HIGH); delayMicroseconds(DELAYUS);
+      }
+      Serial.println();
+      Serial.print("  IDCODE=0x"); Serial.println(id5,HEX);
+      pinMode(p_srst, INPUT); // release D2
+
+      // === TEST 6: slow clock (1ms per cycle) ===
+      Serial.println("=== TEST 6: slow clock 1ms, TMS reset -> IDCODE ===");
+      digitalWrite(p_trst, LOW); delay(50);
+      digitalWrite(p_trst, HIGH); delay(50);
+      digitalWrite(p_tms, HIGH);
+      for(int i=0;i<5;i++){
+        digitalWrite(p_tck,LOW); delay(1);
+        digitalWrite(p_tck,HIGH); delay(1);
+      }
+      int seq6[]={0,1,0,0};
+      for(int i=0;i<4;i++){
+        digitalWrite(p_tms,seq6[i]); delay(1);
+        digitalWrite(p_tck,LOW); delay(1);
+        digitalWrite(p_tck,HIGH); delay(1);
+      }
+      uint32_t id6=0;
+      Serial.print("  bits: ");
+      for(int j=0;j<32;j++){
+        digitalWrite(p_tdi,LOW); delay(1);
+        digitalWrite(p_tck,LOW); delay(1);
+        int v=analogRead(A0); int b=v>TH?1:0;
+        Serial.print(b);
+        if(b) id6|=((uint32_t)1)<<j;
+        digitalWrite(p_tck,HIGH); delay(1);
+      }
+      Serial.println();
+      Serial.print("  IDCODE=0x"); Serial.println(id6,HEX);
+
+      // === TEST 7: D2 digital read of TDO (if still wired) ===
+      Serial.println("=== TEST 7: D2 digital read (if wired to TDO) ===");
+      pinMode(p_srst, INPUT);
+      Serial.print("  D2="); Serial.println(digitalRead(p_srst)?"HIGH":"LOW");
+      pinMode(p_srst, INPUT_PULLUP);
+      Serial.print("  D2(pullup)="); Serial.println(digitalRead(p_srst)?"HIGH":"LOW");
+
+      Serial.println("=== DONE ===");
     }
     else if(strcmp(command, "help") == 0                             || strcmp(command, "h") == 0)
       help();
