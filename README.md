@@ -3,50 +3,141 @@
 Reverse engineering project targeting the OnLime/Rostelecom-branded Humax CXHD-5150C
 set-top box. Goal: obtain root Linux shell access on operator-locked hardware.
 
-> ## ПИЗДЕЦ. ВСЕМ СПАСИБО. Я ЕБАЛ.
+> ## ВСЕ ИНТЕРФЕЙСЫ ЗАКРЫТЫ. ПРИСТАВКА — КИРПИЧ.
 >
-> **Проект остановлен 2026-10-27.** Приставка всё ещё кирпич, root не получен.
-> JTAG через Wemos D1 mini не поднялся: TAP/IDCODE не получен, TDO/TRST
-> плавают, стабильного scan chain нет. Wemos один раз уходил в защиту при
-> попытке жёстко подтянуть TRST к 3.3 В. Дальше без мультиметра, резисторов
-> 10к и проверки, та ли это колодка (верхняя 2x7 возле Entropic EN10024 или
-> незапаянная 2x7 на нижней стороне), продолжать смысла нет.
-> Ничего не шьём. Всё, что наработано, остаётся в репозитории.
+> **Проект остановлен 2026-10-28.** Приставка окирпичена: перепрошивка Y4.11
+> лоадера записала 144/150 блоков (96%), E-FE на битом блоке NAND — загрузчик
+> CFE уничтожен. Все отладочные интерфейсы проверены и закрыты:
 >
-> Возможно, будет продолжение с HD7000i
+> - **JTAG** — OTP Security Fuse пережжён (Conax CAS). Диодный тест: TDO
+>   (пин 5) = 0.898V — дорожка цела, но выходной буфер навсегда отключён в
+>   кремнии. Пункт "JTAG Enable" в меню — ложь, OTP необратим.
+> - **BBS (I2C)** — BSC slave на 0x08 ACKает адрес и 1 байт, но все чтения
+>   возвращают 0xFF. Протокол заблокирован / данные не отдаёт. Исчерпывающее
+>   тестирование: raw read, 16-bit address, write-then-read, частотный свип
+>   10–400 кГц, clock stretch до 150 мс — всё 0xFF.
+> - **UART** — физически отключён на PCB. Диодный тест показывает OL (обрыв)
+>   на пинах UART. Нулевые 0Ω резисторы не распаяны. Сканирование всех
+>   скоростей (9600–1562500) — шум.
+>
+> Всё, что наработано, остаётся в репозитории.
+>
+> **Возможно, будет продолжение** с HD7000i или CXHD-5150C, если дойдут руки.
+> Основная идея — **взлом через PORTAL** (оператор Ростелеком) для получения
+> ключей и дампов прошивок, необходимо исследование.
+>
+> **Если вы в Москве и есть ненужные приставки Humax под эксперименты — свяжитесь!**
 
-**Status (2026-10-27):** stopped. Device is still bricked; no root, no TAP.
-The Wemos D1 mini is flashed, the serial remote_bitbang bridge works, but the
-BCM7405 TAP/IDCODE was never found. The current hypothesis is that the visible
-2x7 header is for the Entropic EN10024, not the BCM7405; the unpopulated 2x7
-footprint on the bottom side is the next candidate. Without a multimeter and
-10k resistors this cannot be verified.
+**Status (2026-10-28):** stopped. Device bricked — Y4.11 loader flash wrote only
+144/150 blocks, CFE destroyed. All three debug interfaces confirmed closed:
+JTAG OTP-locked (TDO buffer permanently disabled), BBS I2C slave returns only
+0xFF, UART physically disconnected on PCB. Remaining viable path: direct NAND
+flash programming with CH341A (NAND chip not yet identified).
 
-## Что случилось с JTAG (итог)
+## Почему приставка стала кирпичом
 
-- **JTAG не поднялся.** Wemos D1 mini V4.0.0 прошит, serial remote_bitbang мост
-  через `uart/serial_bridge.py` работает, OpenOCD 0.12 подключается. Но
-  BCM7405 TAP/IDCODE так и не появился: TDO/TRST плавают, JTAGenum даёт только
-  шум и ложные «IDCODE» на 14 SCK / 13 MOSI.
-- **Протокол исправлен.** OpenOCD присылает `'0'..'7'` (уровни TCK/TMS/TDI), а не
-  `'c'..'f'`; reset — active-low. Это уже в
-  `uart/esp8266_serial_bitbang/esp8266_serial_bitbang.ino`.
-- **Земля.** GND у Humax — 2/4/6/8/10; 12/14 не GND. TMS/TCK/TDI (3/7/9)
-  подтянуты к 3.3 В, TDO (5) и TRST (1) висят.
-- **Wemos один раз ушёл в защиту** при прямом 3.3 В на pin 1. Больше так не
-  делать: только 10к или слабая внутренняя подтяжка, не прямое 3V3.
-- **Главное подозрение.** Верхняя 2x7-колодка стоит возле Entropic EN10024 и
-  может быть его JTAG, а не BCM7405. На нижней стороне есть незапаянная 2x7 —
-  следующий кандидат. Нужен мультиметр/прозвонка.
-- **Чего не хватило.** Мультиметра и резисторов 10к. Без них дальше — лотерея.
-  Если кто-то продолжит: проверить колодку, поставить 10к на TDO/TRST, проверить
-  цепь pin 5 → SoC, и только потом паять.
+Попытка перепрошить загрузчик Y4.11 через USB HDF
+(`build/y411_loader_repacked.hdf`, SysID `0x00000000/0xFFFFFFFF`). Прошилось
+144 из 150 блоков (96%), на 145-м — E-FE (Flash Erase/Write error, битый блок
+NAND). Результат: частично записанный Y4.11 — устройство не может загрузиться.
+
+- MICOM жив (анимация загрузки на передней панели)
+- BCM7213 ROM стартует, но Y4.11 падает до инициализации UART → UART молчит
+- Цикл перезагрузки 13–15 с (blob-gate: нулевой блоб → прыжок в bootrom → reset)
+
+## Что проверено и закрыто (октябрь 2026)
+
+### JTAG — OTP заблокирован навсегда
+
+Диодный тест всех пинов JTAG-колодки (2x7):
+
+| Пин | Сигнал | Диод (мВ) | Вывод |
+|-----|--------|-----------|-------|
+| 1   | TRST   | 400       | Подтяжка на GND (900Ω), дорожка цела |
+| 3   | TDI    | -295      | Норма, защитный диод |
+| 5   | TDO    | **898**   | Дорожка цела, но выходной буфер ОТКЛЮЧЁН (OTP fuse) |
+| 7   | TMS    | -296      | Норма |
+| 9   | TCK    | -296      | Норма |
+| 11  | —      | -296      | Норма |
+
+**TDO = 0.898V** — это не обрыв дорожки (был бы OL) и не рабочий выход (был бы
+~0.5V как остальные). Это характерная сигнатура **пережжённого OTP Security Fuse**:
+трасса дотянута до кремния, но output buffer навсегда отключён внутри чипа.
+Conax CAS требует блокировку JTAG — фьюз прожигается при первой активации CAS.
+
+Пункт "JTAG Enable" в сервисном меню (FUSING INFO) — **враньё**. Он показывает
+состояние *софтверного* бита, а не аппаратного OTP. OTP необратим.
+
+### BBS (I2C) — slave не отдаёт данные
+
+BBS = Broadcom Broadband Studio — 4-пиновый I2C интерфейс (VCC, SCL, SDA, GND).
+BCM7213 выступает I2C Slave на адресе 0x08.
+
+Тестирование через Wemos D1 mini (`uart/bbs_i2c/bbs_i2c.ino`):
+
+| Тест | Результат |
+|------|-----------|
+| I2C scan | 0x08 (BCM7213 BSC) + 0x32 (EEPROM 14128G) |
+| Запись 1 байт на 0x08 | ACK (все 256 значений) |
+| Запись 2+ байт на 0x08 | NACK |
+| Чтение с 0x08 (любой метод) | **0xFF** |
+| Raw read без register address | 0xFF |
+| 16-bit register address (r2) | TX error 3 (NACK на 2-й байт) |
+| Write-then-read (STOP+START) | 0xFF |
+| Частотный свип 10–400 кГц | 0xFF (400 кГц — NACK) |
+| Clock stretch 40/150 мс | 0xFF |
+| Indirect register 0xA6 (SkyWalker-1 протокол) | NACK (2 байта → отказ) |
+
+BSC slave аппаратно присутствует (ACK на адрес), но данные не отдаёт.
+Вероятно, тот же OTP-фьюз блокирует и BBS-доступ.
+
+0x32 (EEPROM "14128G / AF2171"): возвращает `F2 23 75 65 2A 60 53 33` с
+любого смещения — скорее всего M24128 (I2C EEPROM), не flash для CFE.
+
+⚠️ **Перемычка около BBS: НЕ ТРОГАТЬ** — замыкает 3V на GND, вызывает срабатывание
+защиты БП (писк) и отключение MICOM.
+
+### UART — физически отключён
+
+Диодный тест UART-пинов: **OL** (бесконечность) — дорожки физически разорваны.
+На PCB отсутствуют 0Ω SMD-резисторы, которые должны соединять площадки с CPU.
+
+Дополнительная проверка: сканирование всех стандартных и нестандартных скоростей
+(9600, 19200, 38400, 57600, 76800, 115200, 153600, 230400, 250000, 460800,
+500000, 921600, 1562500 бод) через USB-UART адаптер — только шум, 0 полезных
+байт на всех скоростях.
+
+Соседние площадки на PCB проверены — UART TX со стороны CPU не найден.
+
+## Дальнейшие направления
+
+### PORTAL (Ростелеком) — требуется исследование
+
+Основная идея для продолжения: атака через PORTAL (оператор Ростелеком) для
+получения ключей шифрования и дампов прошивок. Если получить ключи CAS и/или
+полные дампы через операторскую инфраструктуру, можно обойти все аппаратные
+блокировки.
+
+### Прямое программирование NAND (CH341A)
+
+Единственный оставшийся аппаратный путь восстановления кирпича: выпаять или
+подключиться к NAND-чипу напрямую через программатор CH341A. Чип NAND на плате
+пока не идентифицирован.
+
+### Кластер дешёвых приставок
+
+Идея: скупать приставки Humax (CXHD-5150C, HD7000i) на Avito по ~300 руб./шт.
+для экспериментов. Рабочая приставка = рабочий UART + возможность дампа через
+Download Mode.
+
+---
 
 ![паяемся](board-images/payayemsya.jpg)
 
 *паяемся*
 
-Подробный разбор — в [docs/deepseek_research.md](docs/deepseek_research.md).
+Подробный разбор BBS и JTAG — в [docs/BBS_JTAG_RESEARCH.md](docs/BBS_JTAG_RESEARCH.md).
+Ранние исследования — в [docs/deepseek_research.md](docs/deepseek_research.md).
 
 Старые предупреждения в силе: чужие прошивки из репо не шить, ключей в них нет, без
 дампа CFE (Y5.06) подмена SysID ничего не даёт. Если у вас есть `.hdf`, которых нет
@@ -62,13 +153,15 @@ andreydenisov25@gmail.com, t.me/@zeniflow_support — ПИШИТЕ СЮДА.
 
 | Component | Details |
 |-----------|---------|
-| SoC | Broadcom BCM7405 (BMIPS4380, MIPS32 LE) |
+| SoC | Broadcom BCM7213 (BMIPS, MIPS32 LE, 256MB DDR2) |
 | Loader | **partially flashed Y4.11** (144/150 blocks; original Y5.06 lost) |
 | System ID | 8050.8400 (OnLime variant) |
 | Flash | NAND, MTD layout confirmed |
-| UART | BCM7405 UART0 (console), UART3 = MICOM |
-| JTAG | Enabled (confirmed via FUSING INFO menu) |
-| Programmer | ESP8266 Wemos D1 mini V4.0.0 — flashed; serial `remote_bitbang` bridge works, but no TAP/IDCODE |
+| UART | Physically disconnected (0Ω resistors missing on PCB) |
+| JTAG | **OTP-locked** (TDO buffer disabled by burned Conax CAS fuse) |
+| BBS (I2C) | BSC slave at 0x08, ACKs address but all reads return 0xFF |
+| MICOM | UART3 @ 115200, alive (front-panel animation running) |
+| Programmer | ESP8266 Wemos D1 mini V4.0.0 — used for I2C bridge and JTAG attempts |
 
 ---
 
@@ -77,17 +170,21 @@ andreydenisov25@gmail.com, t.me/@zeniflow_support — ПИШИТЕ СЮДА.
 | Этап | Что делаем | Критерий успеха | Статус |
 |------|------------|-----------------|--------|
 | 0 | Забрать Wemos | плата на руках | готово |
-| 1 | Поднять JTAG | OpenOCD видит TAP/IDCODE, `halt` работает | **провалено**: TAP не отвечает |
-| 2 | Свой код на CPU | payload в DRAM, маркер в память/порт | заблокировано этапом 1 |
+| 1 | Поднять JTAG | OpenOCD видит TAP/IDCODE, `halt` работает | **закрыто**: OTP fuse пережжён |
+| 1a | BBS I2C | Чтение регистров через BSC slave | **закрыто**: 0xFF на все чтения |
+| 1b | UART | Подключение к консоли | **закрыто**: физически отключён |
+| 2 | Свой код на CPU | payload в DRAM, маркер в память/порт | заблокировано |
 | 3 | Дампы | DRAM, boot ROM, CFE/лоадер из NAND | заблокировано |
 | 4 | Свой загрузчик | DRAM + UART + NAND + USB, загрузка Linux | заблокировано |
-| 5 | Linux с USB | v20 через JTAG → `kexec` | образ готов, JTAG не работает |
+| 5 | Linux с USB | v20 через JTAG → `kexec` | образ готов, JTAG закрыт |
 | 6 | Постоянная загрузка | свой лоадер в NAND после бэкапа | не начато |
+| — | **PORTAL** | ключи/дампы через инфраструктуру оператора | **исследование** |
+| — | **NAND напрямую** | CH341A программатор | не начато |
 
 **Почему так.** Y-loader — единственное, что мешало: он проверяет 262-байтный
 заголовок партиции и 256-байтный блоб, а без валидного блоба уходит в bootrom и
 сбрасывает чип. JTAG и свой лоадер обходят и проверку, и сам Y-loader целиком —
-нам не нужны ни подпись, ни блоб, ни Download Mode.
+нам не нужны ни подпись, ни блоб, ни Download Mode. Но JTAG закрыт OTP-фьюзом.
 
 **Что даст свой лоадер.** Полный контроль над загрузкой: свой UART-консоль,
 чтение NAND, USB host/storage, загрузка ELF/raw-ядра с флешки и передача управления
@@ -141,13 +238,13 @@ bare-metal лоадера. Дампы HD FOX T2 / FOXSAT-HDR (тот же BCM740
 - Kernel: `stblinux-2.6.18-7.1`, patched load address `0x800B0000`
 - PIC self-relocating stub: copies image to `0x800AFAE0`
   (= `0x800B0000 − 0x520`) before jumping to kernel entry; `stub_v15.S` additionally
-  disables the BCM7405 SoC watchdog
+  disables the BCM7213 SoC watchdog
 - Entry point at `+0x508` per CCX app-header convention
 - Initramfs with BusyBox, static IP, netconsole broadcast to `255.255.255.255:6666`
 - Build runs in Docker (`build/Dockerfile`); script expects the repo at `/data`
   and uses `/build` as the work directory
 
-### v20 kernel built (Linux 2.6.18, BCM7405 mipsel)
+### v20 kernel built (Linux 2.6.18, BCM7213 mipsel)
 - **`hdf_work/vmlinux_v20.elf`** — 2.7 MB ELF, entry `0x802AC000`, loads at `0x800B0000`
 - Load segments: `0x800b0000` (text) and `0x80290000` (data/bss); entry points at
   `kernel_entry` near `__init_begin` — i.e. at the **end** of the image, not at its start
@@ -170,44 +267,6 @@ bare-metal лоадера. Дампы HD FOX T2 / FOXSAT-HDR (тот же BCM740
 - `build/trigger_exact_sysid.hdf` (sysid_min=sysid_max=0x80508400) → flashed OK (P000→END)
 - Y5.06 has no wildcard SysID path (FFFF/FFFF → E-ID, 0000/0000 → E-ID)
 - Y4.11 wildcard path exists at `0x833917a0` but only in the Y4.11 loader
-
----
-
-## Current Status
-
-### Device bricked (2026-10-25)
-Attempted to reflash the Y4.11 loader via USB HDF (`build/y411_loader_repacked.hdf`, SysID
-patched to `0x00000000/0xFFFFFFFF`). Flashed 144/150 blocks (96%), then E-FE
-(Flash Erase/Write error) on a bad NAND block. Result: partially-written Y4.11
-loader — device cannot boot.
-- MICOM alive (front-panel LED shows loading animation)
-- BCM7405 ROM starts but Y4.11 crashes before UART init → UART silent
-- JTAG confirmed enabled (FUSING INFO) → recoverable
-
-### JTAG attempt (2026-10-26/27) — failed
-- Wemos D1 mini V4.0.0, serial remote_bitbang bridge via
-  `uart/serial_bridge.py` on `/dev/cu.usbserial-10` @ 500000 baud.
-- OpenOCD 0.12 with `remote_bitbang host 127.0.0.1:3335` connects; the bridge
-  receives/sends packets correctly.
-- Protocol fixed (`'0'..'7'`, active-low reset), but BCM7405 TAP/IDCODE never
-  appeared. TDO (pin 5) and TRST (pin 1) floated; pins 3/7/9 were high.
-- GND pins are 2/4/6/8/10; 12/14 are **not** GND on this header.
-- Wemos went into protection when 3.3 V was tied directly to pin 1 — suspected
-  short/wrong pin. Never hard-tie 3.3 V to a header pin again.
-- Top 2x7 header sits next to the Entropic EN10024 and may be its JTAG, not the
-  BCM7405. The unpopulated 2x7 footprint on the bottom side is the next candidate.
-- No multimeter and no 10k resistors, so the header/TDO path was not verified.
-
-### Если кто-то продолжит
-1. Мультиметр + резисторы 10к.
-2. Проверить, какая 2x7 — BCM7405 JTAG (нижняя незапаянная или верхняя).
-3. Поставить 10к на TDO (pin 5) и TRST (pin 1); не кидать 3.3 В напрямую.
-4. Прозвонить pin 5 → SoC TDO; если цепи нет — искать последовательный 0Ω.
-5. Только потом JTAGenum/OpenOCD; иначе — полный дамп NAND программатором.
-
-**Fallback — restore NAND (later):** write a full known-good loader back to the CFE
-NAND partition. This needs a complete NAND dump or a matching image and is postponed
-until after JTAG bring-up; the current device has no full dump.
 
 ---
 
@@ -235,7 +294,7 @@ Notes:
 
 ---
 
-## JTAG attempt (Wemos D1 mini) — failed
+## JTAG attempt (Wemos D1 mini) — OTP locked
 
 Actual wiring used (silkscreen labels of LOLIN D1 mini V4.0.0):
 
@@ -248,8 +307,6 @@ Actual wiring used (silkscreen labels of LOLIN D1 mini V4.0.0):
 | 1 | **16** | TRST |
 | 2/4/6/8/10 | **GND** | GND |
 
-**12 и 14 — не GND** на этой колодке. Землю брать только с 2/4/6/8/10.
-
 Software path:
 
 - `uart/jtagenum/JTAGenum/JTAGenum.ino` — сканирование пинов (Serial 115200).
@@ -260,22 +317,12 @@ Software path:
   использовался в финале.
 - `uart/probe_meter/probe_meter.ino` — Wemos-прозвонка/вольтметр (4 SDA/12 MISO/A0).
 
-Run:
-
-```bash
-python3 uart/serial_bridge.py /dev/cu.usbserial-10
-openocd -f uart/openocd_bcm7405.cfg
-telnet localhost 4444
-> halt
-> mdw 0xBFC00000 4
-> load_image hdf_work/cfe_hdfoxt2.elf
-> resume 0x87000840
-```
+**Результат: OTP Security Fuse пережжён.** TDO (пин 5) показывает 0.898V в
+диодном режиме — дорожка дотянута до кремния, но выходной буфер навсегда
+заблокирован. JTAG восстановлению не подлежит.
 
 ⚠️ **Никакого 3.3 В напрямую на pin 1.** Wemos уходил в защиту; TRST/TDO
 подтягивать только через 10к или внутренний pull-up (JTAGenum: `r` → Pullups ON).
-Верхняя 2x7 может быть JTAG **Entropic EN10024**, а не BCM7405; на нижней стороне
-есть незапаянная 2x7 — следующий кандидат.
 
 ---
 
@@ -300,6 +347,7 @@ the front panel button to enter Download mode.
 ```
 docs/
   HDF_FORMAT.md              — HDF binary format, byte-exact specification
+  BBS_JTAG_RESEARCH.md       — BBS I2C и JTAG OTP: технический разбор, результаты тестов
   LOADER_FULL_AUDIT.md       — Y4.11 disassembly audit, boot chain, backdoors
   LOADER_Y411_RE.md          — Y4.11 RE notes: AES keys, MICOM, CCX conventions
   V10_EXPERIMENTS.md         — experiment log v10–v15
@@ -320,13 +368,15 @@ tools/
   humidify-ubuntu-1.0.4      — official HDF tool (run in Docker)
 
 uart/
+  bbs_i2c/                   — BBS I2C bridge sketch (Wemos → BCM7213 BSC slave)
+  uart_scan.py               — multi-baud UART scanner (macOS IOSSIOSPEED)
   jtagenum/JTAGenum/         — JTAGenum for Wemos D1 mini — finds JTAG pin mapping
   esp8266_serial_bitbang/    — serial remote_bitbang firmware (final path, 500000 baud)
   serial_bridge.py           — USB serial ↔ TCP localhost:3335 bridge for OpenOCD
   probe_meter/               — Wemos continuity tester / A0 voltmeter
   pin_test/                  — simple pin tester for Wemos
   esp8266_remote_bitbang/    — WiFi remote_bitbang variant (not used in final)
-  openocd_bcm7405.cfg        — OpenOCD config for BCM7405 MIPS EJTAG
+  openocd_bcm7405.cfg        — OpenOCD config for BCM7213 MIPS EJTAG
 
 firmwares/
   genuine/                   — stock firmware images (OnLime, PRIMACOM 5100C)
@@ -364,7 +414,7 @@ The full 393 192-byte Y4.11 loader is at
 | **Humax CXHD-5000C** (-FI, -TELE2) | Tele2 FI/SE/EU | Conax | Same kernel branch; -TELE2 / -FI are operator SKUs. Stock firmware confirmed cross-flashable to HD 7000i profile. |
 | **Humax DIGI+C HD** | DIGI (RO/HU) | Conax | Same kernel config cluster in GPL sources. |
 
-All of the above share the BCM7405 mipsel SoC, HDF firmware container format,
+All of the above share the BCM7213 mipsel SoC, HDF firmware container format,
 Y-loader CCX family, and Linux 2.6.18 kernel tree. All findings from this project
 apply directly.
 
@@ -376,7 +426,7 @@ apply directly.
 | **Humax IRHD-5050C** | Ziggo (NL) | Irdeto | — | Same loader family. |
 | **Humax IHDR-5200C** | Various EU | Irdeto | 7081 | Dual-tuner PVR variant, same platform. |
 
-### Reference platform (working custom firmware, same SoC)
+### Reference platform (working custom firmware, same SoC family)
 
 | Model | Region | Notes |
 |-------|--------|-------|
@@ -408,29 +458,25 @@ The HD FOX T2 / HDR FOX T2 hummy.tv custom firmware (`nosettop` kernel cmdline a
 
 ## Known Issues / TODO
 
-- **JTAG TAP/IDCODE never found.** Top 2x7 header may belong to the Entropic
-  EN10024, not the BCM7405; bottom unpopulated 2x7 is unverified. Needs a
-  multimeter/continuity check.
-- **Never hard-tie 3.3 V to a Humax header pin.** Wemos went into protection on
-  pin 1; suspected short/wrong pin. Use 10k or the Wemos internal pull-up.
-- No multimeter / 10k resistors were available, so TDO/TRST pull-ups and the
-  pin 5 → SoC continuity were not verified.
+- **All debug interfaces closed.** JTAG OTP-locked, BBS returns 0xFF, UART traces cut.
+  Only remaining hardware path: direct NAND programming (CH341A).
 - `build/build_firmware_v20.sh` still packs the raw image with `stub_v14.S` (no WDT
   kill) and prints a stale "Builder v8" banner. Harmless for the JTAG/ELF path; switch
   to `stub_v15.S` (or rebuild) if a flashable v20 image is ever needed.
 - The kernel-size check in the script is 4 MB while the actual partition is 2 MB.
 - `tools/humax_serial_dump.py` never ACKs the first received byte, which likely
   deadlocks the byte-by-byte protocol; fix before using the serial path again.
-- No full NAND dump exists yet; the NAND restore fallback is blocked until JTAG can
-  read it or a matching image is found.
+- No full NAND dump exists yet; the NAND restore fallback is blocked.
+- NAND chip on the board not yet identified — needed for CH341A approach.
 
 ---
 
 ## References
 
-- BCM7405 BMIPS4380 MIPS32 architecture
+- BCM7213 BMIPS MIPS32 architecture (BCM7405 in reference platforms)
 - MIPS EJTAG specification v2.6+ (IR length 5)
 - LZRW1 compression: Ross Williams, 1991 (public domain)
 - JTAGenum: https://github.com/DenisovPlay/JTAGenum
 - hummy.tv community research on HD FOX T2 / HDR FOX T2
 - OpenOCD `remote_bitbang` driver
+- Broadcom Broadband Studio 3 (BBS) documentation
